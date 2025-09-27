@@ -1,0 +1,10 @@
+flag provided but not defined: -http
+Usage of ./tabctl-mediator:
+  -debug
+    	Enable debug logging
+  -host string
+    	Host to bind to (default "localhost")
+  -log string
+    	Log file path (default: stderr)
+  -port int
+    	Port to listen on (default: auto-detect from 4625-4627)
