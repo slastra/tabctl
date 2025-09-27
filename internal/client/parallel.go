@@ -104,7 +104,12 @@ func (pc *ParallelClient) CloseTabsParallel(tabIDs []string) error {
 
 	// Close tabs in parallel for each client
 	for _, client := range pc.clients {
-		tabs, ok := clientTabs[client.GetPrefix()]
+		// GetPrefix returns "a.", but ParseTabID returns "a", so we need to strip the dot
+		prefixWithoutDot := client.GetPrefix()
+		if len(prefixWithoutDot) > 0 && prefixWithoutDot[len(prefixWithoutDot)-1] == '.' {
+			prefixWithoutDot = prefixWithoutDot[:len(prefixWithoutDot)-1]
+		}
+		tabs, ok := clientTabs[prefixWithoutDot]
 		if !ok || len(tabs) == 0 {
 			continue
 		}
