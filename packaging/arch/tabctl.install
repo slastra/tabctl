@@ -1,0 +1,26 @@
+post_install() {
+    echo "==> Setting up TabCtl native messaging..."
+    echo "==> Run 'tabctl install' to configure browser native messaging"
+    echo "==> "
+    echo "==> To use TabCtl, you need to load the browser extension:"
+    echo "==>   Chrome/Brave: Load unpacked from /usr/share/tabctl/extensions/chrome/"
+    echo "==>   Firefox: Load temporary from /usr/share/tabctl/extensions/firefox/"
+    echo "==> "
+    echo "==> Rofi integration scripts are available in /usr/share/tabctl/scripts/"
+    echo "==> You can symlink them to your PATH or use them directly"
+}
+
+post_upgrade() {
+    echo "==> TabCtl has been upgraded"
+    echo "==> Run 'tabctl install' to update native messaging configuration"
+    echo "==> You may need to reload your browser extensions"
+}
+
+post_remove() {
+    echo "==> TabCtl has been removed"
+    echo "==> Native messaging configurations may still exist in:"
+    echo "==>   ~/.mozilla/native-messaging-hosts/"
+    echo "==>   ~/.config/google-chrome/NativeMessagingHosts/"
+    echo "==>   ~/.config/chromium/NativeMessagingHosts/"
+    echo "==>   ~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/"
+}

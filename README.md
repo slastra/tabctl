@@ -1,222 +1,151 @@
 # TabCtl
 
-Control your browser's tabs from the command line.
-
-TabCtl is a Go port of [BroTab](https://github.com/balta2ar/brotab) that provides a fast, single-binary command-line interface for managing browser tabs across Firefox and Chrome-based browsers.
+Control browser tabs from the command line.
 
 ## Features
 
-- **Tab Management**: List, close, activate, and move tabs
-- **Cross-Browser**: Works with Firefox, Chrome, Chromium, and Brave
-- **Search**: Full-text search through tab content using SQLite FTS5
-- **Integration**: Works with fzf, rofi, albert, and other command-line tools
-- **Single Binary**: No dependencies, just download and run
-- **Fast**: Written in Go for optimal performance
+- List, close, activate, and open tabs across multiple browsers
+- Works with Firefox, Chrome, Chromium, and Brave
+- Rofi integration for quick tab switching
+- Virtual desktop support with wmctrl
+- Multiple output formats (TSV, JSON, simple)
+- Single binary with no dependencies
 
 ## Installation
 
-### Download Binary
+### Quick Start
 
-Download the latest release for your platform from the [releases page](https://github.com/tabctl/tabctl/releases).
-
-### Build from Source
-
+1. Build the binaries:
 ```bash
-git clone https://github.com/tabctl/tabctl.git
+git clone https://github.com/slastra/tabctl.git
 cd tabctl
-make build
+go build -o tabctl ./cmd/tabctl
+go build -o tabctl-mediator ./cmd/tabctl-mediator
 ```
 
-### Install Dependencies
-
+2. Install native messaging:
 ```bash
-make deps
+./tabctl install
 ```
 
-## Quick Start
+3. Load browser extension:
+   - Open `brave://extensions/` or `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select `extensions/chrome/` directory
 
-1. **Install native messaging components**:
-   ```bash
-   tabctl install
-   ```
-
-2. **Install browser extensions**:
-   - Firefox: Install from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/tabctl/)
-   - Chrome: Install from [Chrome Web Store](https://chrome.google.com/webstore/detail/tabctl/...)
-
-3. **List your tabs**:
-   ```bash
-   tabctl list
-   ```
-
-4. **Close tabs**:
-   ```bash
-   tabctl list | grep "example.com" | cut -f1 | tabctl close
-   ```
+For Firefox:
+   - Open `about:debugging`
+   - Click "This Firefox"
+   - Click "Load Temporary Add-on"
+   - Select `extensions/firefox/manifest.json`
 
 ## Commands
 
-### Core Commands
-
-- `tabctl list` - List all open tabs
-- `tabctl close <tab_ids>` - Close specified tabs
-- `tabctl activate <tab_id>` - Activate a tab
-- `tabctl active` - Show active tabs
-- `tabctl move` - Interactive tab editor for reordering
-
-### Content Commands
-
-- `tabctl text [tab_ids]` - Get text content from tabs
-- `tabctl html [tab_ids]` - Get HTML content from tabs
-- `tabctl words [tab_ids]` - Extract words for autocomplete
-- `tabctl search <query>` - Search through indexed tab content
-- `tabctl index [tab_ids]` - Index tab content for searching
-
-### Management Commands
-
-- `tabctl open <window_id>` - Open URLs from stdin
-- `tabctl navigate <tab_id> <url>` - Navigate tab to URL
-- `tabctl update <tab_id>` - Update tab properties
-- `tabctl query` - Filter tabs using chrome.tabs API
-- `tabctl screenshot` - Capture tab screenshots
-
-### Utility Commands
-
-- `tabctl windows` - Show available windows
-- `tabctl clients` - Show browser clients
-- `tabctl dup` - Show duplicate tab removal commands
-- `tabctl install` - Install native messaging components
-
-## Examples
-
-### List and Filter Tabs
+### Basic Usage
 
 ```bash
 # List all tabs
 tabctl list
 
-# List tabs with URLs containing "github"
-tabctl list | grep github
+# Activate a tab
+tabctl activate a.123.456
 
-# Show only tab IDs and titles
-tabctl list | cut -f1,2
+# Close tabs
+tabctl close a.123.456 a.123.457
+
+# Open URLs in new tabs
+echo "https://example.com" | tabctl open a.0
 ```
 
-### Close Tabs
+### Query and Filter
 
 ```bash
-# Close specific tabs
-tabctl close a.1.123 b.2.456
+# Show active tabs
+tabctl active
 
-# Close tabs matching pattern
-tabctl list | grep "facebook.com" | cut -f1 | tabctl close
+# Query tabs with filters
+tabctl query --active --current-window
 
-# Close duplicate tabs by URL
-tabctl list | sort -k3 | awk -F$'\t' '{ if (a[$3]++ > 0) print }' | cut -f1 | tabctl close
+# List windows
+tabctl windows
 ```
 
-### Search Tab Content
+### Output Formats
 
 ```bash
-# Index current tabs
-tabctl index
+# JSON output
+tabctl list --format json
 
-# Search for content
-tabctl search "golang tutorial"
+# Simple format (just URLs)
+tabctl list --format simple
 
-# Search with custom database
-tabctl search --sqlite /tmp/tabs.db "react hooks"
+# Custom delimiter
+tabctl list --delimiter ","
+
+# No headers
+tabctl list --no-headers
 ```
 
-### Integration with fzf
+## Rofi Integration
+
+Use the included rofi script for quick tab switching:
 
 ```bash
-# Activate tab with fzf
-tabctl list | fzf | cut -f1 | xargs tabctl activate
+# Make script executable
+chmod +x scripts/tabctl-rofi-switch.sh
 
-# Close tabs with fzf
-tabctl list | fzf -m | cut -f1 | tabctl close
+# Run with rofi
+./scripts/tabctl-rofi-switch.sh
 ```
+
+This script will:
+- List all open tabs
+- Allow fuzzy searching
+- Switch to selected tab
+- Handle virtual desktop switching automatically
+
+### Bind to a hotkey
+
+Add to your window manager config (e.g., i3):
+```
+bindsym $mod+Tab exec ~/path/to/tabctl/scripts/tabctl-rofi-switch.sh
+```
+
+## Architecture
+
+TabCtl uses native messaging to communicate with browser extensions:
+
+```
+tabctl CLI → HTTP → tabctl-mediator → Native Messaging → Browser Extension
+```
+
+The mediator runs on ports:
+- 4625: Firefox
+- 4626: Chrome/Chromium
+- 4627: Brave
 
 ## Configuration
 
 ### Environment Variables
 
-- `TABCTL_TARGET` - Default target hosts (e.g., "localhost:4625,localhost:4626")
-- `TABCTL_SQLITE` - Default SQLite database path
-- `EDITOR` - Editor for interactive tab management
+- `TABCTL_TARGET`: Default mediator host (default: "localhost:4625")
+- `TABCTL_DEBUG`: Enable debug logging
+- `TABCTL_PORT`: Override mediator port
 
-### Native Messaging
-
-TabCtl uses native messaging to communicate with browser extensions. The `tabctl install` command sets up the required configuration files:
-
-- Firefox: `~/.mozilla/native-messaging-hosts/tabctl_mediator.json`
-- Chrome: `~/.config/google-chrome/NativeMessagingHosts/tabctl_mediator.json`
-- Chromium: `~/.config/chromium/NativeMessagingHosts/tabctl_mediator.json`
-- Brave: `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/tabctl_mediator.json`
-
-## Migration from BroTab
-
-TabCtl maintains full compatibility with BroTab's command structure and browser extensions. To migrate:
-
-1. Install tabctl binary
-2. Run `tabctl install` (replaces `bt install`)
-3. Update browser extensions to TabCtl versions
-4. Replace `bt` commands with `tabctl`
-
-All existing scripts and workflows should work without modification.
-
-## Development
-
-### Build
+## Building from Source
 
 ```bash
-make build          # Build for current platform
-make build-all      # Build for all platforms
-make release        # Create full release with packages
+# Build for current platform
+make build
+
+# Run tests
+make test
+
+# Format code
+make fmt
 ```
-
-### Test
-
-```bash
-make test           # Run tests
-make lint           # Run linter
-make fmt            # Format code
-```
-
-### Extensions
-
-```bash
-make extensions     # Package browser extensions
-```
-
-## Architecture
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   tabctl CLI    │───▶│  HTTP Mediator   │───▶│ Browser Extension│
-│   (Go binary)   │    │  (Go HTTP srv)   │    │   (JavaScript)   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ SQLite FTS5 DB   │    │  Browser APIs   │
-                       │   (Tab Search)    │    │ (Tabs/Windows)  │
-                       └──────────────────┘    └─────────────────┘
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Credits
-
-TabCtl is a Go port of [BroTab](https://github.com/balta2ar/brotab) by Yuri Bochkarev.
+MIT
