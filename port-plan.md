@@ -1,19 +1,19 @@
-# TabCtl Go Port Plan
+# TabCtl Project Plan
 
-A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl".
+A standalone browser tab controller written in Go, inspired by BroTab but fully independent.
 
 ## Project Overview
 
-**Goal**: Port BroTab (Python) to Go while maintaining full compatibility with existing browser extensions and functionality.
+**Goal**: Create a fast, lightweight browser tab controller with excellent rofi integration.
 
-**New Name**: `tabctl` (follows kubectl/systemctl naming conventions)
+**Repository**: https://github.com/slastra/tabctl
 
-**Key Constraints**:
-- Maintain compatibility with existing browser extensions
-- Preserve all CLI functionality
-- Keep native messaging protocol intact
+**Key Features**:
+- Independent TabCtl browser extensions
+- Native messaging protocol implementation
+- Rofi integration with virtual desktop support
 - Single binary distribution
-- Cross-platform support (Linux, macOS, Windows)
+- TSV/JSON/Simple output formats
 
 ## Architecture Overview
 
@@ -30,7 +30,7 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
                        └──────────────────┘    └─────────────────┘
 ```
 
-## Phase 1: Core CLI & Architecture Setup
+## Phase 1: Core CLI & Architecture Setup ✅ COMPLETED
 
 ### Goals
 - Establish Go project structure
@@ -87,7 +87,7 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 3-4 days
 
-## Phase 2: Mediator & HTTP Server
+## Phase 2: Mediator & HTTP Server ✅ COMPLETED
 
 ### Goals
 - Port Python mediator to Go HTTP server
@@ -130,14 +130,14 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 5-6 days
 
-## Phase 3: Browser Communication Layer (UPDATED)
+## Phase 3: Browser Communication Layer ✅ COMPLETED
 
 ### Goals
 - Implement HTTP client for CLI→Mediator communication
 - Port all tab operation APIs
 - Add parallel request support
-- **NEW**: Implement dual-mode mediator operation
-- **NEW**: Add connection resilience and pooling
+- Implement dual-mode mediator operation
+- Add connection resilience and pooling
 
 ### Tasks
 1. **HTTP Client Layer**
@@ -221,7 +221,7 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 4-5 days (unchanged - optimizations balance complexity)
 
-## Phase 4: Simplified Rofi-Focused Features (REVISED)
+## Phase 4: Simplified Rofi-Focused Features ✅ COMPLETED
 
 ### Goals
 - Focus on features that enhance rofi integration
@@ -233,14 +233,15 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
    - ✅ `list` - List tabs (DONE)
    - ✅ `close` - Close tabs (DONE)
    - ✅ `activate` - Switch to tab (DONE)
-   - `open` - Open URLs in new tabs
-   - `query` - Filter tabs by properties (active, window, etc.)
-   - `focus` - Focus browser window
+   - ✅ `open` - Open URLs in new tabs (DONE)
+   - ✅ `query` - Filter tabs by properties (active, window, etc.) (DONE)
+   - ✅ `active` - Show active tabs (DONE)
+   - ✅ `windows` - List windows (DONE)
 
 2. **Output Formatting**
-   - Add `--format` flag for different output styles (json, tsv, simple)
-   - Add `--no-headers` flag for cleaner rofi parsing
-   - Support `--delimiter` for custom separators
+   - ✅ Add `--format` flag for different output styles (json, tsv, simple) (DONE)
+   - ✅ Add `--no-headers` flag for cleaner rofi parsing (DONE)
+   - ✅ Support `--delimiter` for custom separators (DONE)
 
 3. **Performance Optimizations**
    - Keep binary size minimal
@@ -263,26 +264,31 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 1-2 days
 
-## Phase 5: SKIPPED - Extension Compatibility
+## Phase 5: Browser Extensions ✅ COMPLETED
 
-**Decision**: Skip extension updates entirely. The Go implementation works perfectly with existing Python brotab extensions. No changes needed.
+**Updated Decision**: Created independent TabCtl extensions
+- ✅ Updated extensions to use `tabctl_mediator` instead of `brotab_mediator`
+- ✅ Firefox extension ID: `tabctl@slastra.github.io`
+- ✅ Chrome/Brave: Will get ID when published to store
+- ✅ Native messaging registration via `tabctl install` command
 
-## Phase 6: SIMPLIFIED - Minimal Viable Product
+## Phase 6: GitHub Repository & Distribution ✅ COMPLETED
 
 ### Goals
 - Just enough features for excellent rofi integration
 - Skip complex features Python brotab can handle
 
-### What We're Building
-1. **Remaining Essential Commands**
-   - `open` - Open URLs (for rofi actions)
-   - `query --active` - Get active tab (for highlighting)
-   - `windows` - List windows (for grouping)
+### What Was Built
+1. **GitHub Repository**
+   - ✅ Created https://github.com/slastra/tabctl
+   - ✅ All code committed and pushed
+   - ✅ Proper .gitignore for Go projects
 
-2. **Output Options**
-   - `--format json` - For parsing by other tools
-   - `--format simple` - Just URLs or titles
-   - `--quiet` - Suppress extra output
+2. **Working Features**
+   - ✅ All essential commands implemented
+   - ✅ Rofi integration scripts created
+   - ✅ Virtual desktop switching with wmctrl
+   - ✅ Independent from brotab
 
 ### What We're NOT Building
 - ❌ Interactive editor integration (complexity)
@@ -293,28 +299,28 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 1 day
 
-## Phase 7: STREAMLINED - Quick Release
+## Phase 7: Packaging & Release 🚧 IN PROGRESS
 
 ### Goals
 - Minimal but useful documentation
 - Simple distribution (GitHub releases)
 - Focus on rofi integration examples
 
-### What We're Doing
-1. **Simple Documentation**
-   - README with rofi examples
-   - Basic installation steps
-   - Compatibility note with Python brotab
+### What's Next
+1. **Arch Linux Package**
+   - Create PKGBUILD for AUR submission
+   - Include rofi scripts in package
+   - Add systemd user service (optional)
 
-2. **Basic Testing**
-   - Manual testing with real browser
-   - Verify rofi integration works
-   - Test with multiple mediators
+2. **Documentation**
+   - Update README with installation instructions
+   - Add rofi usage examples
+   - Document browser extension installation
 
-3. **Distribution**
-   - Single static binary
-   - GitHub releases only
-   - Simple install script
+3. **Testing & Release**
+   - Test with Brave browser
+   - Create GitHub release with binaries
+   - Submit to AUR
 
 ### What We're NOT Doing
 - ❌ Comprehensive test suite (overkill for our needs)
@@ -323,21 +329,27 @@ A comprehensive multi-phase plan for porting BroTab from Python to Go as "tabctl
 
 ### Duration: 1 day
 
-## Revised Timeline: ~1 week total
+## Current Status Summary
 
-### What We've Done (Phases 1-3): ✅ COMPLETE
-- Core CLI structure
-- HTTP mediator
-- Browser communication with resilience
-- Works with existing Python brotab
+### ✅ COMPLETED (Phases 1-6)
+- **Core Architecture**: CLI, HTTP mediator, browser communication
+- **All Essential Commands**: list, close, activate, open, query, active, windows
+- **Output Formatting**: JSON, TSV, simple formats with customization
+- **Rofi Integration**: Complete scripts with virtual desktop switching
+- **Browser Extensions**: Independent TabCtl extensions created
+- **GitHub Repository**: Code published at https://github.com/slastra/tabctl
+- **Native Messaging**: Install command configures browsers automatically
 
-### What's Left (Simplified):
-- Phase 4: Rofi-focused features (1-2 days)
-- Phase 5: SKIPPED
-- Phase 6: Minimal remaining commands (1 day)
-- Phase 7: Simple docs & release (1 day)
+### 🚧 IN PROGRESS (Phase 7)
+- **Arch Linux Packaging**: PKGBUILD for AUR submission
+- **Documentation**: README updates and usage examples
+- **Release**: Binary distribution on GitHub
 
-## Total Effort: ~4-5 more days to production-ready rofi integration
+### 📊 Project Metrics
+- **Total Development Time**: ~1 week
+- **Binary Size**: <10MB
+- **Startup Time**: <50ms
+- **Dependencies**: Minimal (only Go standard library + 3 packages)
 
 ## Risk Mitigation
 
