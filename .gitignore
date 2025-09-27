@@ -26,3 +26,6 @@ Thumbs.db
 *.test
 *.out
 coverage.txt
+
+# Planning documents
+port-plan.md
