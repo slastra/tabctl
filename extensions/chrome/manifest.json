@@ -1,5 +1,5 @@
 {
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzyx/+EdZs2+hyTNUotJ0hIZ1WDS1vuM9MpCJ1LNi9wrwduQOc0Wc8AvcwfIibKhLkWrCGcgFMIMYmMd8/3UEciaVs+grhZVnC02jJCEk9aEJlfiUC5hNK+GUwc80DVu/ufYVQRP8u79Txibw1siIZ5dQeTlDmAHmbT72HDOK0TGoKIGNJOh5ewvUPt72X6Yk4UMI+BkSr8fOjBtVKO+/U9LEZ2Z1rrjrt3XlF9IjCgGCBMr81KR7FnibIZKwp1TasSJGam2y5YZSlK073Yt3QAB8eyubKEz64RTTyudC3gRvgdKGytYboe2BMiSSRDsTm+1DLjaJXpKxPHvZ8wfYYQIDAQAB",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo5z6NKbScm9IqQcl1CCVpbd+eqOS7hXAeCbLcj2QqyxjP565AbH3pw2Kuf7e+xM/guwwgWg9JVBmdqMJiHN/p31a6y9niCWgceyISUof8B4500VsNlaIkeXJ8lgE7O3ysO+IsLfgpRdTMbf4+qUiDNl5rAicqbY9tDl2HA7vj5pZDFE5l0LHeJgrvP59N0vE9U1nl96j1QuH+yh+ZTjPrPPtrYz0p74Nlvh95ueH5SJaapXKwtlmtL5tpdu37gY0VAwClK7Dcaj0Y0xkrz5z/iOP4fn71feu/HTIJ7k1LWPkuWJ0TtpGjAKLURlruR9HWdQ5PbNw8QaNbwF+kyBbyQIDAQAB",
   "description": "Control your browser's tabs from command line with tabctl",
   "manifest_version": 2,
   "name": "TabCtl",
