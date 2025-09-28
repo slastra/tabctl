@@ -25,15 +25,21 @@ type ProcessClient struct {
 
 // NewProcessClient creates a new client that connects to Unix socket
 func NewProcessClient(prefix, host string, port int) api.Client {
-	// Determine browser from port
-	browser := "unknown"
+	// Determine browser and prefix based on port
+	// Port 4625 = Firefox, 4626 = Chrome, 4627 = Brave/Chrome
+	var browser string
+	var correctPrefix string
+
 	switch port {
 	case 4625:
 		browser = "firefox"
-	case 4626:
+		correctPrefix = "f."
+	case 4626, 4627:
 		browser = "chrome"
-	case 4627:
-		browser = "brave"
+		correctPrefix = "c."
+	default:
+		browser = "unknown"
+		correctPrefix = prefix // Use provided prefix
 	}
 
 	// Use XDG_RUNTIME_DIR if available, otherwise /tmp
@@ -46,7 +52,7 @@ func NewProcessClient(prefix, host string, port int) api.Client {
 	socketPath := filepath.Join(runtimeDir, fmt.Sprintf("tabctl-%d.sock", port))
 
 	return &ProcessClient{
-		prefix:     prefix,
+		prefix:     correctPrefix,
 		browser:    browser,
 		socketPath: socketPath,
 		cache:      NewResponseCache(5 * time.Minute),
@@ -102,6 +108,7 @@ func (c *ProcessClient) executeCommand(command string, args map[string]interface
 	if err := decoder.Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+
 
 	// Check if response contains an error
 	if respMap, ok := response.(map[string]interface{}); ok {

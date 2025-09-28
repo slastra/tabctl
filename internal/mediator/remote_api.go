@@ -24,14 +24,25 @@ func NewRemoteAPI(transport Transport) *RemoteAPI {
 	}
 }
 
-// sendCommand sends a command to the browser and returns the response
+// sendCommand sends a command to the browser and returns the response.
+// If the browser has disconnected (stdin closed), it exits the process.
 func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
 	if err := r.transport.Send(cmd); err != nil {
+		// Check if stdin/stdout is closed (browser disconnected)
+		if r.isConnectionClosed(err) {
+			log.Printf("Browser connection closed during send: %v", err)
+			os.Exit(0) // Clean exit when browser disconnects
+		}
 		return nil, err
 	}
 
 	response, err := r.transport.Recv()
 	if err != nil {
+		// Check if stdin is closed (browser disconnected)
+		if r.isConnectionClosed(err) {
+			log.Printf("Browser connection closed during recv: %v", err)
+			os.Exit(0) // Clean exit when browser disconnects
+		}
 		return nil, err
 	}
 
@@ -42,12 +53,22 @@ func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
 	return response["result"], nil
 }
 
+// isConnectionClosed checks if an error indicates the browser connection is closed
+func (r *RemoteAPI) isConnectionClosed(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection closed") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "EOF")
+}
+
 // ListTabs returns a list of all tabs
 func (r *RemoteAPI) ListTabs() ([]string, error) {
 	cmd := NewCommand(CmdListTabs, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("ListTabs error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -73,7 +94,6 @@ func (r *RemoteAPI) QueryTabs(queryInfo string) ([]string, error) {
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("QueryTabs error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -99,7 +119,6 @@ func (r *RemoteAPI) MoveTabs(moveTriplets string) (string, error) {
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("MoveTabs error: %v", err)
 		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -122,7 +141,6 @@ func (r *RemoteAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
 	cmd := NewCommand(CmdOpenURLs, args)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("OpenURLs error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -148,7 +166,6 @@ func (r *RemoteAPI) UpdateTabs(updates []map[string]interface{}) ([]string, erro
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("UpdateTabs error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -175,7 +192,6 @@ func (r *RemoteAPI) CloseTabs(tabIDs string) (string, error) {
 
 	_, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("CloseTabs error: %v", err)
 		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -190,7 +206,6 @@ func (r *RemoteAPI) NewTab(query string) (string, error) {
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("NewTab error: %v", err)
 		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -210,7 +225,6 @@ func (r *RemoteAPI) ActivateTab(tabID int, focused bool) error {
 
 	_, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("ActivateTab error: %v", err)
 		return fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -222,7 +236,6 @@ func (r *RemoteAPI) GetActiveTabs() (string, error) {
 	cmd := NewCommand(CmdGetActiveTabs, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("GetActiveTabs error: %v", err)
 		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -238,7 +251,6 @@ func (r *RemoteAPI) GetScreenshot() (string, error) {
 	cmd := NewCommand(CmdGetScreenshot, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("GetScreenshot error: %v", err)
 		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -262,7 +274,6 @@ func (r *RemoteAPI) GetWords(tabID *int, matchRegex, joinWith string) ([]string,
 	cmd := NewCommand(CmdGetWords, args)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("GetWords error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -280,7 +291,8 @@ func (r *RemoteAPI) GetWords(tabID *int, matchRegex, joinWith string) ([]string,
 	return nil, errors.NewTransportError("unexpected response format", nil)
 }
 
-// GetText extracts text from tabs
+// GetText extracts text content from tabs.
+// The delimiter regex splits the text and replaceWith joins it back.
 func (r *RemoteAPI) GetText(delimiterRegex, replaceWith string) ([]string, error) {
 	cmd := NewCommand(CmdGetText, map[string]interface{}{
 		"delimiterRegex": delimiterRegex,
@@ -289,22 +301,10 @@ func (r *RemoteAPI) GetText(delimiterRegex, replaceWith string) ([]string, error
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("GetText error: %v", err)
-		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
+		return nil, fmt.Errorf("failed to extract text: %w", err)
 	}
 
-	// Convert result to string array
-	if lines, ok := result.([]interface{}); ok {
-		var textLines []string
-		for _, line := range lines {
-			if lineStr, ok := line.(string); ok {
-				textLines = append(textLines, lineStr)
-			}
-		}
-		return textLines, nil
-	}
-
-	return nil, errors.NewTransportError("unexpected response format", nil)
+	return r.parseStringArray(result, "get text")
 }
 
 // GetHTML extracts HTML from tabs
@@ -316,7 +316,6 @@ func (r *RemoteAPI) GetHTML(delimiterRegex, replaceWith string) ([]string, error
 
 	result, err := r.sendCommand(cmd)
 	if err != nil {
-		log.Printf("GetHTML error: %v", err)
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
@@ -339,10 +338,11 @@ func (r *RemoteAPI) GetPID() int {
 	return os.Getpid()
 }
 
-// GetBrowser returns the browser name
+// GetBrowser returns the detected browser name.
+// It queries the extension if not already known.
 func (r *RemoteAPI) GetBrowser() string {
 	if r.browser == "" {
-		// Try to get from extension
+		// Query browser from extension
 		cmd := NewCommand(CmdGetBrowser, nil)
 		result, err := r.sendCommand(cmd)
 		if err == nil {
@@ -356,4 +356,20 @@ func (r *RemoteAPI) GetBrowser() string {
 		return "unknown"
 	}
 	return r.browser
+}
+
+// parseStringArray converts an interface{} result to []string.
+// Used to reduce code duplication in response parsing.
+func (r *RemoteAPI) parseStringArray(result interface{}, operation string) ([]string, error) {
+	if items, ok := result.([]interface{}); ok {
+		var lines []string
+		for _, item := range items {
+			if str, ok := item.(string); ok {
+				lines = append(lines, str)
+			}
+		}
+		return lines, nil
+	}
+
+	return nil, errors.NewTransportError(fmt.Sprintf("unexpected response format for %s", operation), nil)
 }

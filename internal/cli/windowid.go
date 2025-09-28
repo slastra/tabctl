@@ -11,38 +11,33 @@ import (
 	"github.com/tabctl/tabctl/pkg/api"
 )
 
-var (
-	activateFocused bool
-	showWindowID    bool
-)
-
-var activateCmd = &cobra.Command{
-	Use:   "activate <tab_id>",
-	Short: "Activate given tab ID",
-	Long: `Activate given tab ID. Tab ID should be in the following format:
-"<prefix>.<window_id>.<tab_id>"`,
+var windowIDCmd = &cobra.Command{
+	Use:   "window-id <tab_id>",
+	Short: "Get the system window ID for a browser tab",
+	Long: `Get the system window ID (X11) for a browser tab by activating it
+and matching its title with wmctrl output.`,
 	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runActivateTab(args[0], activateFocused, showWindowID)
-	},
+	RunE: runWindowID,
 }
 
 func init() {
-	activateCmd.Flags().BoolVar(&activateFocused, "focused", false, "make browser focused after tab activation")
-	activateCmd.Flags().BoolVar(&showWindowID, "window-id", false, "output the system window ID after activation")
+	rootCmd.AddCommand(windowIDCmd)
 }
 
-func runActivateTab(tabID string, focused bool, showWindowID bool) error {
-	// Parse tab ID to get prefix
+func runWindowID(cmd *cobra.Command, args []string) error {
+	tabID := args[0]
+
+	// Parse tab ID to get components
 	prefix, _, _, err := utils.ParseTabID(tabID)
 	if err != nil {
 		return fmt.Errorf("invalid tab ID: %w", err)
 	}
 
-	// Find the appropriate client
+	// Create parallel client to query all browsers
 	pc := client.NewParallelClient(globalHost)
-	clients := pc.GetClients()
 
+	// Find the correct client for this tab
+	clients := pc.GetClients()
 	var targetClient api.Client
 	for _, c := range clients {
 		if c.GetPrefix() == prefix+"." {
@@ -55,30 +50,15 @@ func runActivateTab(tabID string, focused bool, showWindowID bool) error {
 		return fmt.Errorf("no mediator found for prefix %s", prefix)
 	}
 
-	// Activate the tab
-	if err := targetClient.ActivateTab(tabID, focused); err != nil {
+	// First, activate the tab to ensure its window is focused
+	if err := targetClient.ActivateTab(tabID, true); err != nil {
 		return fmt.Errorf("failed to activate tab: %w", err)
 	}
 
-	if showWindowID {
-		// Get system window ID by title matching
-		windowID, err := getSystemWindowID(targetClient, tabID)
-		if err != nil {
-			return fmt.Errorf("failed to get window ID: %w", err)
-		}
-		fmt.Println(windowID)
-	} else {
-		fmt.Printf("Activated tab %s\n", tabID)
-	}
-	return nil
-}
-
-// getSystemWindowID finds the system window ID for a tab by matching its title
-func getSystemWindowID(client api.Client, tabID string) (string, error) {
 	// Get the tab's title
-	tabs, err := client.ListTabs()
+	tabs, err := targetClient.ListTabs()
 	if err != nil {
-		return "", fmt.Errorf("failed to list tabs: %w", err)
+		return fmt.Errorf("failed to list tabs: %w", err)
 	}
 
 	var tabTitle string
@@ -91,14 +71,14 @@ func getSystemWindowID(client api.Client, tabID string) (string, error) {
 	}
 
 	if tabTitle == "" {
-		return "", fmt.Errorf("could not find title for tab %s", tabID)
+		return fmt.Errorf("could not find title for tab %s", tabID)
 	}
 
 	// Use wmctrl to find the window by title
 	wmctrlCmd := exec.Command("wmctrl", "-l")
 	output, err := wmctrlCmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to run wmctrl: %w", err)
+		return fmt.Errorf("failed to run wmctrl: %w", err)
 	}
 
 	// Search for the window with matching title
@@ -108,7 +88,8 @@ func getSystemWindowID(client api.Client, tabID string) (string, error) {
 			// Extract window ID (first field)
 			fields := strings.Fields(line)
 			if len(fields) > 0 {
-				return fields[0], nil
+				fmt.Println(fields[0])
+				return nil
 			}
 		}
 	}
@@ -121,11 +102,12 @@ func getSystemWindowID(client api.Client, tabID string) (string, error) {
 			if strings.Contains(line, shortTitle) {
 				fields := strings.Fields(line)
 				if len(fields) > 0 {
-					return fields[0], nil
+					fmt.Println(fields[0])
+					return nil
 				}
 			}
 		}
 	}
 
-	return "", fmt.Errorf("could not find window for tab %s (title: %s)", tabID, tabTitle)
+	return fmt.Errorf("could not find window for tab %s (title: %s)", tabID, tabTitle)
 }

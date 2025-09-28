@@ -1,30 +1,29 @@
 package mediator
 
 import (
-	"log"
-	"os"
-
 	"github.com/tabctl/tabctl/internal/config"
 )
 
-// Mediator represents a simplified browser tab mediator
+// Mediator coordinates communication between the browser extension and CLI.
+// It runs as a native messaging host, receiving commands via Unix socket
+// from the CLI and forwarding them to the browser extension via stdio.
 type Mediator struct {
 	config     *config.MediatorConfig
 	unixServer *UnixServer
 	remoteAPI  *RemoteAPI
 }
 
-// NewMediator creates a new simplified mediator
+// NewMediator creates a new mediator instance.
+// It sets up the stdio transport for browser communication
+// and a Unix socket server for CLI connections.
 func NewMediator(cfg *config.MediatorConfig) (*Mediator, error) {
-	log.Printf("Creating mediator in CLI mode")
+	// Create stdio transport for native messaging
+	transport := NewDefaultTransport()
 
-	// Create stdio transport for browser communication
-	transport := NewStdioTransport()
-
-	// Create remote API
+	// Create remote API handler
 	remoteAPI := NewRemoteAPI(transport)
 
-	// Create Unix socket server
+	// Create Unix socket server for CLI connections
 	unixServer, err := NewUnixServer(cfg, remoteAPI)
 	if err != nil {
 		return nil, err
@@ -37,25 +36,18 @@ func NewMediator(cfg *config.MediatorConfig) (*Mediator, error) {
 	}, nil
 }
 
-// Run starts the mediator
+// Run starts the mediator's Unix socket server.
+// The mediator will automatically exit when the browser closes stdin
+// (detected in RemoteAPI.sendCommand).
 func (m *Mediator) Run() error {
-	log.Println("Starting mediator")
-
-	// Start Unix socket server
 	return m.unixServer.Start()
 }
 
-// Shutdown shuts down the mediator
+// Shutdown gracefully shuts down the mediator and cleans up resources
 func (m *Mediator) Shutdown() error {
-	log.Println("Shutting down mediator")
-
 	if m.unixServer != nil {
 		return m.unixServer.Shutdown()
 	}
 	return nil
 }
 
-// NewStdioTransport creates a new stdio transport
-func NewStdioTransport() Transport {
-	return NewStdTransport(os.Stdin, os.Stdout)
-}

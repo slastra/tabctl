@@ -14,27 +14,42 @@ import (
 	"github.com/tabctl/tabctl/internal/utils"
 )
 
-// UnixServer represents a Unix socket server for the mediator
+// UnixServer handles CLI connections via Unix domain socket.
+// It receives commands from the CLI tool and forwards them
+// to the browser extension through the RemoteAPI.
 type UnixServer struct {
 	config     *config.MediatorConfig
-	remoteAPI  *RemoteAPI
-	socketPath string
-	listener   net.Listener
+	remoteAPI  *RemoteAPI  // Handles forwarding to browser
+	socketPath string       // Path to Unix domain socket
+	listener   net.Listener // Active socket listener
 }
 
-// NewUnixServer creates a new Unix socket server
+// NewUnixServer creates a new Unix socket server.
+// The socket is created in XDG_RUNTIME_DIR (or /tmp as fallback)
+// with a name based on the configured port for multi-browser support.
 func NewUnixServer(cfg *config.MediatorConfig, remoteAPI *RemoteAPI) (*UnixServer, error) {
-	// Use XDG_RUNTIME_DIR if available, otherwise /tmp
+	// Use XDG_RUNTIME_DIR for better security (user-specific temp dir)
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
 	if runtimeDir == "" {
 		runtimeDir = "/tmp"
 	}
 
-	// Create socket path based on port for compatibility
+	// Socket name includes port for multiple browser support
 	socketPath := filepath.Join(runtimeDir, fmt.Sprintf("tabctl-%d.sock", cfg.Port))
 
-	// Remove existing socket if it exists
-	os.Remove(socketPath)
+	// Check if socket already exists and is active
+	if _, err := os.Stat(socketPath); err == nil {
+		// Socket file exists, check if it's active
+		conn, err := net.Dial("unix", socketPath)
+		if err == nil {
+			// Another mediator is already running on this socket
+			conn.Close()
+			return nil, fmt.Errorf("another mediator is already running on %s", socketPath)
+		}
+		// Socket exists but no one is listening, remove stale socket
+		log.Printf("Removing stale socket: %s", socketPath)
+		os.Remove(socketPath)
+	}
 
 	return &UnixServer{
 		config:     cfg,
@@ -43,46 +58,45 @@ func NewUnixServer(cfg *config.MediatorConfig, remoteAPI *RemoteAPI) (*UnixServe
 	}, nil
 }
 
-// Start starts the Unix socket server
+// Start starts the Unix socket server and begins accepting connections.
+// This method blocks until the server is shut down.
 func (us *UnixServer) Start() error {
-	// Create Unix socket listener
+	// Create Unix domain socket
 	listener, err := net.Listen("unix", us.socketPath)
 	if err != nil {
-		return fmt.Errorf("failed to create unix socket: %w", err)
+		return fmt.Errorf("failed to create unix socket at %s: %w", us.socketPath, err)
 	}
 	us.listener = listener
 
-	// Set socket permissions to be user-only
+	// Restrict socket to current user only for security
 	if err := os.Chmod(us.socketPath, 0600); err != nil {
 		listener.Close()
 		return fmt.Errorf("failed to set socket permissions: %w", err)
 	}
 
-	log.Printf("Starting Unix socket server on %s", us.socketPath)
-
-	// Accept connections and handle them
+	// Accept and handle connections
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
+			// Log error but continue accepting other connections
 			log.Printf("Failed to accept connection: %v", err)
 			continue
 		}
 
-		// Handle each connection in a goroutine
+		// Handle each connection concurrently
 		go us.handleConnection(conn)
 	}
 }
 
-// handleConnection handles a single Unix socket connection
+// handleConnection processes a single CLI connection.
+// It reads one command, processes it, and sends back the response.
 func (us *UnixServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	log.Printf("New Unix socket connection")
-
-	// Read JSON command from connection
 	decoder := json.NewDecoder(conn)
 	encoder := json.NewEncoder(conn)
 
+	// Read command from CLI
 	var command map[string]interface{}
 	if err := decoder.Decode(&command); err != nil {
 		log.Printf("Failed to decode command: %v", err)
@@ -92,29 +106,28 @@ func (us *UnixServer) handleConnection(conn net.Conn) {
 		return
 	}
 
-	log.Printf("Received Unix socket command: %v", command)
-
-	// Process the command and get response
+	// Process command and forward to browser
 	response, err := us.processCommand(command)
 	if err != nil {
-		log.Printf("Failed to process command: %v", err)
+		log.Printf("Command failed: %v", err)
 		encoder.Encode(map[string]interface{}{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	// Send response back
+	// Send response back to CLI
 	if err := encoder.Encode(response); err != nil {
 		log.Printf("Failed to send response: %v", err)
 	}
 }
 
-// processCommand processes a command and returns the response
+// processCommand routes commands to the appropriate RemoteAPI method.
+// It handles type conversions and argument extraction for each command.
 func (us *UnixServer) processCommand(command map[string]interface{}) (interface{}, error) {
 	cmdName, ok := command["name"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing command name")
+		return nil, fmt.Errorf("missing or invalid command name")
 	}
 
 	switch cmdName {
@@ -133,13 +146,14 @@ func (us *UnixServer) processCommand(command map[string]interface{}) (interface{
 				tabIDs = append(tabIDs, idStr)
 			}
 		}
-		tabIDsStr := strings.Join(tabIDs, ",") // Convert to comma-separated string expected by CloseTabs
+		// Convert to comma-separated string for RemoteAPI
+		tabIDsStr := strings.Join(tabIDs, ",")
 		return us.remoteAPI.CloseTabs(tabIDsStr)
 	case "activate_tab":
 		args, _ := command["args"].(map[string]interface{})
 		focused, _ := args["focused"].(bool)
 
-		// Get tab ID from args - try both "tab_id" and "tabId" for compatibility
+		// Support both "tab_id" and "tabId" for compatibility
 		var tabIDStr string
 		if tabID, ok := args["tab_id"].(string); ok {
 			tabIDStr = tabID
@@ -149,13 +163,12 @@ func (us *UnixServer) processCommand(command map[string]interface{}) (interface{
 			return nil, fmt.Errorf("missing tab_id in activate_tab command")
 		}
 
-		// Parse the full tab ID (e.g., "a.1874581886.1874581981") to extract just the tab number
+		// Extract numeric tab ID from full format (e.g., "f.1234.5678")
 		_, _, tabIDNumStr, err := utils.ParseTabID(tabIDStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid tab ID format: %w", err)
 		}
 
-		// Convert to integer
 		tabIDInt, err := strconv.Atoi(tabIDNumStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid tab ID number: %w", err)
@@ -171,7 +184,7 @@ func (us *UnixServer) processCommand(command map[string]interface{}) (interface{
 				urls = append(urls, urlStr)
 			}
 		}
-		windowID := (*int)(nil) // No window ID for now
+		var windowID *int // Optional window ID
 		return us.remoteAPI.OpenURLs(urls, windowID)
 	case "get_active_tabs":
 		return us.remoteAPI.GetActiveTabs()
@@ -180,21 +193,19 @@ func (us *UnixServer) processCommand(command map[string]interface{}) (interface{
 	}
 }
 
-// Shutdown gracefully shuts down the Unix socket server
+// Shutdown gracefully shuts down the Unix socket server and cleans up resources
 func (us *UnixServer) Shutdown() error {
-	log.Printf("Shutting down Unix socket server")
-
 	if us.listener != nil {
 		us.listener.Close()
 	}
 
-	// Clean up socket file
+	// Remove socket file to prevent stale sockets
 	os.Remove(us.socketPath)
 
 	return nil
 }
 
-// GetSocketPath returns the Unix socket path
+// GetSocketPath returns the path to the Unix domain socket
 func (us *UnixServer) GetSocketPath() string {
 	return us.socketPath
 }

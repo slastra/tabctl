@@ -2,11 +2,62 @@
 On startup, connect to the "tabctl_mediator" app.
 */
 
-//const GET_WORDS_SCRIPT = '[...new Set(document.body.innerText.match(/\\w+/g))].sort().join("\\n");';
 const GET_WORDS_SCRIPT = '[...new Set(document.documentElement.innerText.match(#match_regex#))].sort().join(#join_with#);';
-//const GET_TEXT_SCRIPT = 'document.body.innerText.replace(/\\n|\\r|\\t/g, " ");';
 const GET_TEXT_SCRIPT = 'document.documentElement.innerText.replace(#delimiter_regex#, #replace_with#);';
 const GET_HTML_SCRIPT = 'document.documentElement.innerHTML.replace(#delimiter_regex#, #replace_with#);';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Send a standardized success response to the mediator
+ */
+function sendResponse(data) {
+  port.postMessage({result: data});
+}
+
+/**
+ * Send a standardized error response to the mediator
+ */
+function sendError(message) {
+  port.postMessage({error: message});
+}
+
+/**
+ * Extract numeric tab ID from full tab ID format (e.g., "a.1234.5678" -> 5678)
+ */
+function parseTabId(fullTabId) {
+  if (typeof fullTabId === 'string' && fullTabId.includes('.')) {
+    const parts = fullTabId.split('.');
+    return parseInt(parts[parts.length - 1], 10);
+  }
+  return parseInt(fullTabId, 10);
+}
+
+/**
+ * Format a tab object into TSV format with all fields
+ */
+function formatTabToTSV(tab) {
+  return `c.${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${tab.index}\t${tab.active}\t${tab.pinned}`;
+}
+
+/**
+ * Validate required command arguments
+ */
+function validateArgs(command, requiredFields) {
+  if (!command || !command.args) {
+    return 'Missing command arguments';
+  }
+
+  for (const field of requiredFields) {
+    if (command.args[field] === undefined || command.args[field] === null) {
+      return `Missing required argument: ${field}`;
+    }
+  }
+
+  return null;
+}
 
 
 class BrowserTabs {
@@ -316,21 +367,6 @@ function reconnect() {
 
 
 // see https://stackoverflow.com/a/15479354/258421
-// function naturalCompare(a, b) {
-//     var ax = [], bx = [];
-
-//     a.replace(/(\d+)|(\D+)/g, function(_, $1, $2) { ax.push([$1 || Infinity, $2 || ""]) });
-//     b.replace(/(\d+)|(\D+)/g, function(_, $1, $2) { bx.push([$1 || Infinity, $2 || ""]) });
-
-//     while(ax.length && bx.length) {
-//         var an = ax.shift();
-//         var bn = bx.shift();
-//         var nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
-//         if(nn) return nn;
-//     }
-
-//     return ax.length - bx.length;
-// }
 
 function compareWindowIdTabId(tabA, tabB) {
   if (tabA.windowId != tabB.windowId) {
@@ -340,16 +376,20 @@ function compareWindowIdTabId(tabA, tabB) {
 }
 
 function listTabsOnSuccess(tabs) {
-  var lines = [];
-  // Make sure tabs are sorted by their index within a window
-  tabs.sort(compareWindowIdTabId);
-  for (let tab of tabs) {
-    var line = "a." + tab.windowId + "." + tab.id + "\t" + tab.title + "\t" + tab.url + "\t" + tab.index + "\t" + tab.active + "\t" + tab.pinned;
-    console.log(line);
-    lines.push(line);
+  try {
+    if (!tabs || !Array.isArray(tabs)) {
+      sendError('Invalid tabs data received');
+      return;
+    }
+
+    // Make sure tabs are sorted by their index within a window
+    tabs.sort(compareWindowIdTabId);
+    const lines = tabs.map(tab => formatTabToTSV(tab));
+    sendResponse(lines);
+  } catch (error) {
+    console.error('Error in listTabsOnSuccess:', error);
+    sendError('Failed to process tabs list');
   }
-  // lines = lines.sort(naturalCompare);
-  port.postMessage({result: lines});
 }
 
 function listTabs() {
@@ -357,20 +397,25 @@ function listTabs() {
 }
 
 function queryTabsOnSuccess(tabs) {
-  if (!tabs || !Array.isArray(tabs)) {
-    console.error('queryTabsOnSuccess received invalid tabs:', tabs);
-    port.postMessage({result: []});
-    return;
+  try {
+    if (!tabs || !Array.isArray(tabs)) {
+      console.error('queryTabsOnSuccess received invalid tabs:', tabs);
+      sendResponse([]);
+      return;
+    }
+
+    tabs.sort(compareWindowIdTabId);
+    const lines = tabs.map(tab => formatTabToTSV(tab));
+    sendResponse(lines);
+  } catch (error) {
+    console.error('Error in queryTabsOnSuccess:', error);
+    sendError('Failed to process query results');
   }
-  tabs.sort(compareWindowIdTabId);
-  let lines = tabs.map(tab => `a.${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${tab.index}\t${tab.active}\t${tab.pinned}`)
-  console.log(lines);
-  port.postMessage({result: lines});
 }
 
 function queryTabsOnFailure(error) {
-  console.error(error);
-  port.postMessage({result: []});
+  console.error('Query tabs failed:', error);
+  sendResponse([]);
 }
 
 function queryTabs(query_info) {
@@ -405,19 +450,13 @@ function queryTabs(query_info) {
   }
 }
 
-// function moveTabs(move_triplets) {
-//   for (let triplet of move_triplets) {
-//     const [tabId, windowId, index] = triplet;
-//     browserTabs.move(tabId, {index: index, windowId: windowId});
-//   }
-// }
 
 function moveTabs(move_triplets) {
   // move_triplets is a tuple of (tab_id, window_id, new_index)
   if (move_triplets.length == 0) {
     // this post is only required to make bt move command synchronous. mediator
     // is waiting for any reply
-    port.postMessage('OK');
+    sendResponse('OK');
     return
   }
 
@@ -430,29 +469,28 @@ function moveTabs(move_triplets) {
 }
 
 function closeTabs(tab_ids) {
-  if (!tab_ids || !Array.isArray(tab_ids)) {
-    console.error('closeTabs: tab_ids is undefined or not an array:', tab_ids);
-    port.postMessage({error: 'Invalid tab_ids parameter'});
-    return;
-  }
-
-  // Parse full tab IDs to extract just the numeric tab ID
-  const numericIds = tab_ids.map(id => {
-    if (typeof id === 'string' && id.includes('.')) {
-      const parts = id.split('.');
-      return parseInt(parts[parts.length - 1], 10);
+  try {
+    if (!tab_ids || !Array.isArray(tab_ids)) {
+      console.error('closeTabs: tab_ids is undefined or not an array:', tab_ids);
+      sendError('Invalid tab_ids parameter');
+      return;
     }
-    return parseInt(id, 10);
-  });
-  browserTabs.close(numericIds, () => port.postMessage({result: 'OK'}));
+
+    // Parse full tab IDs to extract just the numeric tab ID
+    const numericIds = tab_ids.map(id => parseTabId(id));
+    browserTabs.close(numericIds, () => sendResponse('OK'));
+  } catch (error) {
+    console.error('Error closing tabs:', error);
+    sendError('Failed to close tabs');
+  }
 }
 
 function openUrls(urls, window_id, first_result="") {
-  if (urls.length == 0) {
-    console.log('Opening urls done');
-    port.postMessage({result: []});
-    return;
-  }
+  try {
+    if (urls.length == 0) {
+      sendResponse([]);
+      return;
+    }
 
   if (window_id === 0) {
     browserTabs.create({'url': urls[0], windowId: 0}, (window) => {
@@ -478,23 +516,29 @@ function openUrls(urls, window_id, first_result="") {
       result.unshift(first_result);
     }
     const data = Array.prototype.concat(...result)
-    console.log(`Sending ids back: ${JSON.stringify(data)}`);
-    port.postMessage({result: data})
+    sendResponse(data);
   });
+  } catch (error) {
+    console.error('Error opening URLs:', error);
+    sendError('Failed to open URLs');
+  }
 }
 
 function createTab(url) {
-  browserTabs.create({'url': url},
-    (tab) => {
-      console.log(`Created new tab: ${tab.id}`);
-      port.postMessage([`${tab.windowId}.${tab.id}`]);
-  });
+  try {
+    browserTabs.create({'url': url},
+      (tab) => {
+        sendResponse([`${tab.windowId}.${tab.id}`]);
+    });
+  } catch (error) {
+    console.error('Error creating tab:', error);
+    sendError('Failed to create tab');
+  }
 }
 
 function updateTabs(updates) {
   if (updates.length == 0) {
-    console.log('Updating tabs done');
-    port.postMessage([]);
+    sendResponse([]);
     return;
   }
 
@@ -513,31 +557,43 @@ function updateTabs(updates) {
   };
   Promise.all(promises).then(result => {
     const data = Array.prototype.concat(...result).filter(x => !!x)
-    console.log(`Sending ids back after update: ${JSON.stringify(data)}`);
-    port.postMessage(data)
+    sendResponse(data);
   });
 }
 
 function activateTab(tab_id, focused) {
-  // Convert string tab ID to integer for Chrome API
-  const tabIdInt = parseInt(tab_id, 10);
-  browserTabs.activate(tabIdInt, focused);
-  // Send response to prevent hanging
-  port.postMessage({result: 'OK'});
+  try {
+    // Convert string tab ID to integer for Chrome API
+    const tabIdInt = parseTabId(tab_id);
+    browserTabs.activate(tabIdInt, focused);
+    sendResponse('OK');
+  } catch (error) {
+    console.error('Error activating tab:', error);
+    sendError('Failed to activate tab');
+  }
 }
 
 function getActiveTabs() {
-  browserTabs.getActive(tabs => {
-      var result = tabs.map(tab => tab.windowId + "." + tab.id).toString()
-      console.log(`Active tabs: ${result}`);
-      port.postMessage(result);
-  });
+  try {
+    browserTabs.getActive(tabs => {
+        var result = tabs.map(tab => tab.windowId + "." + tab.id).toString()
+        sendResponse(result);
+    });
+  } catch (error) {
+    console.error('Error getting active tabs:', error);
+    sendError('Failed to get active tabs');
+  }
 }
 
 function getActiveScreenshot() {
-  browserTabs.getActiveScreenshot(data => {
-    port.postMessage(data);
-  });
+  try {
+    browserTabs.getActiveScreenshot(data => {
+      sendResponse(data);
+    });
+  } catch (error) {
+    console.error('Error getting screenshot:', error);
+    sendError('Failed to get screenshot');
+  }
 }
 
 function getWordsScript(match_regex, join_with) {
@@ -590,7 +646,7 @@ function getWordsFromTabs(tabs, match_regex, join_with) {
     (all_words) => {
       const result = Array.prototype.concat(...all_words);
       console.log(`Total number of words: ${result.length}`);
-      port.postMessage(result);
+      sendResponse(result);
     }
   )
 }
@@ -605,7 +661,7 @@ function getWords(tab_id, match_regex, join_with) {
     const script = getWordsScript(match_regex, join_with);
     console.log(`Getting words, running a script: ${script}`);
     browserTabs.runScript(tab_id, script, null,
-      (words, _payload) => port.postMessage(listOr(words, [])),
+      (words, _payload) => sendResponse(listOr(words, [])),
       (error, _payload) => console.log(`getWords: tab_id=${tab_id}, could not run script (${script})`),
     );
   }
@@ -659,8 +715,7 @@ function getTextOnRunScriptSuccess(all_results) {
     lines.push(line);
   }
   // lines = lines.sort(naturalCompare);
-  console.log(`Total number of lines of text: ${lines.length}`);
-  port.postMessage(lines);
+  sendResponse(lines);
 }
 
 function getTextOnListSuccess(tabs, delimiter_regex, replace_with) {
@@ -688,9 +743,13 @@ function getHtml(delimiter_regex, replace_with) {
 }
 
 function getBrowserName() {
-  const name = browserTabs.getBrowserName();
-  console.log("Sending browser name: " + name);
-  port.postMessage(name);
+  try {
+    const name = browserTabs.getBrowserName();
+    sendResponse(name);
+  } catch (error) {
+    console.error('Error getting browser name:', error);
+    sendError('Failed to get browser name');
+  }
 }
 
 /*

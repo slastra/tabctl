@@ -7,7 +7,9 @@
     "scripts": ["background.js"]
   },
   "icons": {
-      "128": "tabctl-icon-128x128.png"
+    "128": "tabctl-icon-128x128.png",
+    "48": "tabctl-icon-48x48.png",
+    "16": "tabctl-icon-16x16.png"
   },
   "permissions": ["nativeMessaging", "tabs", "activeTab", "<all_urls>"],
   "applications": {
