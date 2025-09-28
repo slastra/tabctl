@@ -2,7 +2,6 @@ package mediator
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -27,10 +26,11 @@ func NewRemoteAPI(transport Transport) *RemoteAPI {
 // sendCommand sends a command to the browser and returns the response.
 // If the browser has disconnected (stdin closed), it exits the process.
 func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
+	// Sending command to browser
 	if err := r.transport.Send(cmd); err != nil {
 		// Check if stdin/stdout is closed (browser disconnected)
 		if r.isConnectionClosed(err) {
-			log.Printf("Browser connection closed during send: %v", err)
+			// Browser connection closed during send
 			os.Exit(0) // Clean exit when browser disconnects
 		}
 		return nil, err
@@ -40,17 +40,21 @@ func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
 	if err != nil {
 		// Check if stdin is closed (browser disconnected)
 		if r.isConnectionClosed(err) {
-			log.Printf("Browser connection closed during recv: %v", err)
+			// Browser connection closed during recv
 			os.Exit(0) // Clean exit when browser disconnects
 		}
 		return nil, err
 	}
 
+	// Received response from browser
+
 	if errMsg, ok := response["error"].(string); ok && errMsg != "" {
 		return nil, fmt.Errorf("browser error: %s", errMsg)
 	}
 
-	return response["result"], nil
+	result := response["result"]
+	// Result extracted
+	return result, nil
 }
 
 // isConnectionClosed checks if an error indicates the browser connection is closed
@@ -72,17 +76,25 @@ func (r *RemoteAPI) ListTabs() ([]string, error) {
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 
+	// Processing tab list
+
 	// Convert result to string array
 	if tabs, ok := result.([]interface{}); ok {
+		// Converting tabs
 		var lines []string
 		for _, tab := range tabs {
+			// Processing tab
 			if tabStr, ok := tab.(string); ok {
 				lines = append(lines, tabStr)
+			} else {
+				// Conversion failed
 			}
 		}
+		// Tab list ready
 		return lines, nil
 	}
 
+	// Unexpected result format
 	return nil, errors.NewTransportError("unexpected response format", nil)
 }
 

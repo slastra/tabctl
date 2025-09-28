@@ -93,32 +93,38 @@ func (us *UnixServer) Start() error {
 func (us *UnixServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	// New connection accepted
+
 	decoder := json.NewDecoder(conn)
 	encoder := json.NewEncoder(conn)
 
 	// Read command from CLI
 	var command map[string]interface{}
 	if err := decoder.Decode(&command); err != nil {
-		log.Printf("Failed to decode command: %v", err)
+		// Failed to decode command
 		encoder.Encode(map[string]interface{}{
 			"error": fmt.Sprintf("Failed to decode command: %v", err),
 		})
 		return
 	}
 
+	// Command received
+
 	// Process command and forward to browser
 	response, err := us.processCommand(command)
 	if err != nil {
-		log.Printf("Command failed: %v", err)
+		// Command failed
 		encoder.Encode(map[string]interface{}{
 			"error": err.Error(),
 		})
 		return
 	}
 
+	// Command succeeded
+
 	// Send response back to CLI
 	if err := encoder.Encode(response); err != nil {
-		log.Printf("Failed to send response: %v", err)
+		// Failed to send response
 	}
 }
 

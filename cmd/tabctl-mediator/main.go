@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/tabctl/tabctl/internal/config"
@@ -25,6 +29,20 @@ func main() {
 	flag.StringVar(&logFile, "log", "", "Log file path (default: stderr)")
 	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 	flag.Parse()
+
+	// Detect browser from extension ID argument (passed by native messaging)
+	// Chrome/Brave passes: chrome-extension://...
+	// Firefox passes: moz-extension://... or nothing
+	if port == 0 && len(flag.Args()) > 0 {
+		arg := flag.Arg(0)
+		if strings.HasPrefix(arg, "chrome-extension://") {
+			// Chrome/Brave - use port 4627
+			port = 4627
+		} else if strings.HasPrefix(arg, "moz-extension://") {
+			// Firefox - use port 4625
+			port = 4625
+		}
+	}
 
 	// Always redirect logs when stdin is not a terminal (native messaging mode)
 	// to avoid corrupting the native messaging protocol
@@ -108,8 +126,21 @@ func findAvailablePort() int {
 
 // isPortInUse checks if a port is already in use
 func isPortInUse(port int) bool {
-	// TODO: Implement actual port checking
-	// For now, return false to allow port selection
+	// Check if Unix socket already exists and is in use
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = "/tmp"
+	}
+	socketPath := filepath.Join(runtimeDir, fmt.Sprintf("tabctl-%d.sock", port))
+
+	// Try to connect to the socket
+	conn, err := net.Dial("unix", socketPath)
+	if err == nil {
+		// Socket is in use
+		conn.Close()
+		return true
+	}
+
 	return false
 }
 

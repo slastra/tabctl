@@ -68,6 +68,7 @@ func NewDefaultTransport() Transport {
 // Send sends a message to the browser extension using the native messaging protocol:
 // 4-byte little-endian length header followed by JSON message body
 func (t *StdTransport) Send(message interface{}) error {
+	// Sending message
 	// Encode message to JSON
 	jsonData, err := json.Marshal(message)
 	if err != nil {
@@ -144,11 +145,15 @@ func (t *StdTransport) readMessage() (map[string]interface{}, error) {
 		return nil, errors.NewTransportError("failed to read message content", err)
 	}
 
+	// Raw message received
+
 	// Decode JSON message
 	var message map[string]interface{}
 	if err := json.Unmarshal(messageData, &message); err != nil {
 		return nil, errors.NewTransportError("failed to unmarshal message", err)
 	}
+
+	// Message received and decoded
 
 	return message, nil
 }

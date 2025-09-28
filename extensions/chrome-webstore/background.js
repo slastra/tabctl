@@ -6,6 +6,11 @@ const GET_WORDS_SCRIPT = '[...new Set(document.documentElement.innerText.match(#
 const GET_TEXT_SCRIPT = 'document.documentElement.innerText.replace(#delimiter_regex#, #replace_with#);';
 const GET_HTML_SCRIPT = 'document.documentElement.innerHTML.replace(#delimiter_regex#, #replace_with#);';
 
+// Global port variable for native messaging
+let port = undefined;
+let browserTabs = undefined;
+const NATIVE_APP_NAME = 'tabctl_mediator';
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -14,14 +19,21 @@ const GET_HTML_SCRIPT = 'document.documentElement.innerHTML.replace(#delimiter_r
  * Send a standardized success response to the mediator
  */
 function sendResponse(data) {
-  if (!port) {
+  
+
+  // Debug: Log the actual data being sent
+  if (Array.isArray(data)) {
     
-    return;
+    
   }
 
-  try {
-    port.postMessage({result: data});
-  } catch (error) {
+  if (port) {
+    const message = {result: data};
+    
+    
+    port.postMessage(message);
+    
+  } else {
     
   }
 }
@@ -30,20 +42,13 @@ function sendResponse(data) {
  * Send a standardized error response to the mediator
  */
 function sendError(message) {
-  if (!port) {
-    
-    return;
-  }
-
-  try {
+  if (port) {
     port.postMessage({error: message});
-  } catch (error) {
-    
   }
 }
 
 /**
- * Extract numeric tab ID from full tab ID format (e.g., "f.1234.5678" -> 5678)
+ * Extract numeric tab ID from full tab ID format (e.g., "a.1234.5678" -> 5678)
  */
 function parseTabId(fullTabId) {
   if (typeof fullTabId === 'string' && fullTabId.includes('.')) {
@@ -54,10 +59,21 @@ function parseTabId(fullTabId) {
 }
 
 /**
- * Format a tab object into TSV format with all fields (Firefox prefix)
+ * Format a tab object into TSV format with all fields
  */
 function formatTabToTSV(tab) {
-  return `f.${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${tab.index}\t${tab.active}\t${tab.pinned}`;
+  // Use actual tab character instead of \t in template literal for service worker
+  const TAB = '\t';
+  const formatted = `c.${tab.windowId}.${tab.id}${TAB}${tab.title}${TAB}${tab.url}${TAB}${tab.index}${TAB}${tab.active}${TAB}${tab.pinned}`;
+
+  // Debug: log the formatted string and check for tabs
+  
+  
+  
+  
+  
+
+  return formatted;
 }
 
 /**
@@ -77,10 +93,10 @@ function validateArgs(command, requiredFields) {
   return null;
 }
 
-
-class BrowserTabs {
-  constructor(browser) {
-    this._browser = browser;
+// Chrome V3 implementation - using chrome APIs directly since we only support Chrome for V3
+class ChromeTabs {
+  constructor() {
+    this._browser = chrome;
   }
 
   runtime() {
@@ -88,227 +104,139 @@ class BrowserTabs {
   }
 
   list(queryInfo, onSuccess) {
-    throw new Error('list is not implemented');
+    
+    this._browser.tabs.query(queryInfo, (tabs) => {
+      
+      if (tabs && tabs.length > 0) {
+        
+      }
+      onSuccess(tabs || []);
+    });
   }
 
-  query(queryInfo, onSuccess) {
-    throw new Error('query is not implemented');
-  }
-
-  close(tab_ids, onSuccess) {
-    throw new Error('close is not implemented');
-  }
-
-  move(tabId, moveOptions, onSuccess) {
-    throw new Error('move is not implemented');
-  }
-
-  update(tabId, options, onSuccess, onError) {
-    throw new Error('update is not implemented');
-  }
-
-  create(createOptions, onSuccess) {
-    throw new Error('create is not implemented');
-  }
-
-  activate(tab_id) {
-    throw new Error('activate is not implemented');
-  }
-
-  getActive(onSuccess) {
-    throw new Error('getActive is not implemented');
-  }
-
-  getActiveScreenshot(onSuccess) {
-    throw new Error('getActiveScreenshot is not implemented');
-  }
-
-  runScript(tab_id, script, payload, onSuccess, onError) {
-    throw new Error('runScript is not implemented');
-  }
-
-  getBrowserName() {
-    throw new Error('getBrowserName is not implemented');
-  }
-}
-
-class FirefoxTabs extends BrowserTabs {
-  list(queryInfo, onSuccess) {
-    this._browser.tabs.query(queryInfo).then(
-      onSuccess,
-      (error) => console.log(`Error listing tabs: ${error}`)
-    );
+  activate(tab_id, focused) {
+    this._browser.tabs.update(tab_id, {'active': true});
+    this._browser.tabs.get(tab_id, function(tab) {
+      chrome.windows.update(tab.windowId, {focused: focused});
+    });
   }
 
   query(queryInfo, onSuccess) {
     if (queryInfo.hasOwnProperty('windowFocused')) {
       let keepFocused = queryInfo['windowFocused']
       delete queryInfo.windowFocused;
-      this._browser.tabs.query(queryInfo).then(
-        tabs => {
-          Promise.all(tabs.map(tab => {
-            return new Promise(resolve => {
-              this._browser.windows.get(tab.windowId, {populate: false}, window => {
-                resolve(window.focused === keepFocused ? tab : null);
-              });
+      this._browser.tabs.query(queryInfo, tabs => {
+        Promise.all(tabs.map(tab => {
+          return new Promise(resolve => {
+            this._browser.windows.get(tab.windowId, {populate: false}, window => {
+              resolve(window.focused === keepFocused ? tab : null);
             });
-          })).then(result => {
-            tabs = result.filter(tab => tab !== null);
-            onSuccess(tabs);
           });
-        },
-        (error) => console.log(`Error executing queryTabs: ${error}`)
-      );
+        })).then(result => {
+          tabs = result.filter(tab => tab !== null);
+          onSuccess(tabs);
+        });
+      });
     } else {
-      this._browser.tabs.query(queryInfo).then(
-        onSuccess,
-        (error) => console.log(`Error executing queryTabs: ${error}`)
-      );
+      this._browser.tabs.query(queryInfo, onSuccess);
     }
   }
 
   close(tab_ids, onSuccess) {
-    this._browser.tabs.remove(tab_ids).then(
-      onSuccess,
-      (error) => console.log(`Error removing tab: ${error}`)
-    );
+    this._browser.tabs.remove(tab_ids, onSuccess);
   }
 
   move(tabId, moveOptions, onSuccess) {
-    this._browser.tabs.move(tabId, moveOptions).then(
-      onSuccess,
-      (error) => console.log(`Error moving tab: ${error}`)
-    );
+    this._browser.tabs.move(tabId, moveOptions, onSuccess);
   }
 
   update(tabId, options, onSuccess, onError) {
-    this._browser.tabs.update(tabId, options).then(
-      onSuccess,
-      (error) => {
-        console.log(`Error updating tab ${tabId}: ${error}`)
+    this._browser.tabs.update(tabId, options, tab => {
+      if (this._browser.runtime.lastError) {
+        let error = this._browser.runtime.lastError.message;
+        console.error(`Could not update tab: ${error}, tabId=${tabId}, options=${JSON.stringify(options)}`)
         onError(error)
+      } else {
+        onSuccess(tab)
       }
-    );
+    });
   }
 
   create(createOptions, onSuccess) {
     if (createOptions.windowId === 0) {
-      this._browser.windows.create({ url: createOptions.url }).then(
-        onSuccess,
-        (error) => console.log(`Error: ${error}`)
-      );
+      this._browser.windows.create({ url: createOptions.url }, onSuccess);
     } else {
-      this._browser.tabs.create(createOptions).then(
-        onSuccess,
-        (error) => console.log(`Error: ${error}`)
-      );
+      this._browser.tabs.create(createOptions, onSuccess);
     }
   }
 
   getActive(onSuccess) {
-    this._browser.tabs.query({active: true}).then(
-      onSuccess,
-      (error) => console.log(`Error: ${error}`)
-    );
+    this._browser.tabs.query({active: true}, onSuccess);
   }
 
   getActiveScreenshot(onSuccess) {
     let queryOptions = { active: true, lastFocusedWindow: true };
-    this._browser.tabs.query(queryOptions).then(
-      (tabs) => {
-        let tab = tabs[0];
-        let windowId = tab.windowId;
-        let tabId = tab.id;
-        this._browser.tabs.captureVisibleTab(windowId, { format: 'png' }).then(
-          function(data) {
-            const message = {
-              tab: tabId,
-              window: windowId,
-              data: data
-            };
-            onSuccess(message);
-          },
-          (error) => console.log(`Error: ${error}`)
-        );
-      },
-      (error) => console.log(`Error: ${error}`)
-    );
+    this._browser.tabs.query(queryOptions, (tabs) => {
+      let tab = tabs[0];
+      let windowId = tab.windowId;
+      let tabId = tab.id;
+      this._browser.tabs.captureVisibleTab(windowId, { format: 'png' }, function(data) {
+        const message = {
+          tab: tabId,
+          window: windowId,
+          data: data
+        };
+        onSuccess(message);
+      });
+    });
   }
 
-  runScript(tab_id, script, payload, onSuccess, onError) {
-    this._browser.tabs.executeScript(tab_id, {code: script}).then(
-      (result) => onSuccess(result, payload),
-      (error) => onError(error, payload)
-    );
+  async runScript(tab_id, script, payload, onSuccess, onError) {
+    try {
+      // For V3, we need to inject a function, not arbitrary code
+      // We'll create a wrapper function that executes the script
+      const results = await this._browser.scripting.executeScript({
+        target: { tabId: tab_id },
+        func: (scriptCode) => {
+          try {
+            // Execute the script in the page context
+            return eval(scriptCode);
+          } catch (e) {
+            
+            return null;
+          }
+        },
+        args: [script]
+      });
+
+      const result = results && results[0] ? results[0].result : null;
+      onSuccess(result ? [result] : [], payload);
+    } catch (error) {
+      
+      onError(error, payload);
+    }
   }
 
   getBrowserName() {
-      return "firefox";
-  }
-
-  activate(tab_id, focused) {
-    
-
-    this._browser.tabs.update(tab_id, {'active': true}).then(
-      (tab) => {
-        
-        if (focused) {
-          this._browser.windows.update(tab.windowId, {focused: true}).then(
-            () => console.log(`[TabCtl] Window ${tab.windowId} focused`),
-            (error) => console.error(`[TabCtl] Error focusing window: ${error}`)
-          );
-        }
-      },
-      (error) => {
-        
-        
-      }
-    );
+      return "chrome/chromium";
   }
 }
 
-var port = undefined;
-var browserTabs = undefined;
-var reconnectTimer = null;
-const NATIVE_APP_NAME = 'tabctl_mediator';
 
 reconnect();
 
 function reconnect() {
-  // Clear any pending reconnect timer
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-
-  // Avoid reconnecting if already connected
-  if (port) {
-    
-    return;
-  }
-
   
-  port = browser.runtime.connectNative(NATIVE_APP_NAME);
-  browserTabs = new FirefoxTabs(browser);
+  port = chrome.runtime.connectNative(NATIVE_APP_NAME);
+  
+  browserTabs = new ChromeTabs();
 
-  // Add message listener
+  // Set up port listeners
   port.onMessage.addListener(handleMessage);
-
-  // Add disconnect listener
   port.onDisconnect.addListener(handleDisconnect);
-
-  // Send a test ping after connection
-  setTimeout(() => {
-    try {
-      if (port) {
-        port.postMessage({type: 'ping', timestamp: Date.now()});
-      }
-    } catch (e) {
-      
-    }
-  }, 1000);
 }
 
+// see https://stackoverflow.com/a/15479354/258421
 
 function compareWindowIdTabId(tabA, tabB) {
   if (tabA.windowId != tabB.windowId) {
@@ -318,27 +246,26 @@ function compareWindowIdTabId(tabA, tabB) {
 }
 
 function listTabsOnSuccess(tabs) {
+  
   try {
-    
-
     if (!tabs || !Array.isArray(tabs)) {
-      
       sendError('Invalid tabs data received');
       return;
     }
 
     // Make sure tabs are sorted by their index within a window
     tabs.sort(compareWindowIdTabId);
-    const lines = tabs.map(tab => {
-      const line = formatTabToTSV(tab);
+    const lines = tabs.map(tab => formatTabToTSV(tab));
+
+    // Debug: Check the lines array
+    
+    lines.forEach((line, i) => {
       
-      return line;
+      
     });
 
-    
     sendResponse(lines);
   } catch (error) {
-    
     
     sendError('Failed to process tabs list');
   }
@@ -421,7 +348,6 @@ function moveTabs(move_triplets) {
 }
 
 function closeTabs(tab_ids) {
-  
   try {
     if (!tab_ids || !Array.isArray(tab_ids)) {
       
@@ -430,21 +356,11 @@ function closeTabs(tab_ids) {
     }
 
     // Parse full tab IDs to extract just the numeric tab ID
-    const numericIds = tab_ids.map(id => {
-      const parsed = parseTabId(id);
-      
-      return parsed;
-    });
-
-    
-    browserTabs.close(numericIds, () => {
-      
-      sendResponse('OK');
-    });
+    const numericIds = tab_ids.map(id => parseTabId(id));
+    browserTabs.close(numericIds, () => sendResponse('OK'));
   } catch (error) {
     
-    
-    sendError('Failed to close tabs: ' + error.message);
+    sendError('Failed to close tabs');
   }
 }
 
@@ -457,7 +373,7 @@ function openUrls(urls, window_id, first_result="") {
 
   if (window_id === 0) {
     browserTabs.create({'url': urls[0], windowId: 0}, (window) => {
-      result = `f.${window.id}.${window.tabs[0].id}`;
+      result = `${window.id}.${window.tabs[0].id}`;
       
       urls = urls.slice(1);
       openUrls(urls, window.id, result);
@@ -470,7 +386,7 @@ function openUrls(urls, window_id, first_result="") {
     
     promises.push(new Promise((resolve, reject) => {
       browserTabs.create({'url': url, windowId: window_id},
-        (tab) => resolve(`f.${tab.windowId}.${tab.id}`)
+        (tab) => resolve(`${tab.windowId}.${tab.id}`)
       );
     }))
   };
@@ -491,7 +407,7 @@ function createTab(url) {
   try {
     browserTabs.create({'url': url},
       (tab) => {
-        sendResponse([`f.${tab.windowId}.${tab.id}`]);
+        sendResponse([`${tab.windowId}.${tab.id}`]);
     });
   } catch (error) {
     
@@ -510,9 +426,9 @@ function updateTabs(updates) {
     
     promises.push(new Promise((resolve, reject) => {
       browserTabs.update(update.tab_id, update.properties,
-        (tab) => { resolve(`f.${tab.windowId}.${tab.id}`) },
+        (tab) => { resolve(`${tab.windowId}.${tab.id}`) },
         (error) => {
-          console.error(`Could not update tab: ${error}, update=${JSON.stringify(update)}`)
+          // Could not update tab
           resolve()
         }
       );
@@ -525,32 +441,21 @@ function updateTabs(updates) {
 }
 
 function activateTab(tab_id, focused) {
-  
   try {
-    // Convert string tab ID to integer for Firefox API
+    // Convert string tab ID to integer for Chrome API
     const tabIdInt = parseTabId(tab_id);
-    
-
-    if (isNaN(tabIdInt)) {
-      
-      sendError(`Invalid tab ID: ${tab_id}`);
-      return;
-    }
-
     browserTabs.activate(tabIdInt, focused);
-    
     sendResponse('OK');
   } catch (error) {
     
-    
-    sendError('Failed to activate tab: ' + error.message);
+    sendError('Failed to activate tab');
   }
 }
 
 function getActiveTabs() {
   try {
     browserTabs.getActive(tabs => {
-        var result = tabs.map(tab => `f.${tab.windowId}.${tab.id}`).toString()
+        var result = tabs.map(tab => tab.windowId + "." + tab.id).toString()
         sendResponse(result);
     });
   } catch (error) {
@@ -636,7 +541,7 @@ function getWords(tab_id, match_regex, join_with) {
     
     browserTabs.runScript(tab_id, script, null,
       (words, _payload) => sendResponse(listOr(words, [])),
-      (error, _payload) => console.log(`getWords: tab_id=${tab_id}, could not run script (${script})`),
+      (error, _payload) => {},
     );
   }
 }
@@ -685,7 +590,7 @@ function getTextOnRunScriptSuccess(all_results) {
     tab = result['tab'];
     text = result['text'];
     // 
-    let line = `f.${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${text}`;
+    let line = tab.windowId + "." + tab.id + "\t" + tab.title + "\t" + tab.url + "\t" + text;
     lines.push(line);
   }
   // lines = lines.sort(naturalCompare);
@@ -726,38 +631,24 @@ function getBrowserName() {
   }
 }
 
+/*
+Listen for messages from the app.
+*/
 function handleMessage(command) {
-  if (!command) {
-    return;
-  }
-
-  // Handle ping response
-  if (command.type === 'pong') {
-    return;
-  }
-
-  if (!command.name) {
-    return;
-  }
+  
 
   if (command['name'] == 'list_tabs') {
-    // For Firefox, immediately return tab data instead of waiting for CLI request
-    browserTabs.list({}, (tabs) => {
-      if (!tabs || !Array.isArray(tabs)) {
-        sendError('Invalid tabs data received');
-        return;
-      }
-      tabs.sort(compareWindowIdTabId);
-      const lines = tabs.map(tab => formatTabToTSV(tab));
-      sendResponse(lines);
-    });
+    
+    listTabs();
   }
 
   else if (command['name'] == 'query_tabs') {
+    
     queryTabs(command['args']['query_info']);
   }
 
   else if (command['name'] == 'close_tabs') {
+    
     closeTabs(command['args']['tab_ids']);
   }
 
@@ -782,6 +673,7 @@ function handleMessage(command) {
   }
 
   else if (command['name'] == 'activate_tab') {
+    
     activateTab(command['args']['tab_id'], !!command['args']['focused']);
   }
 
@@ -811,31 +703,20 @@ function handleMessage(command) {
   }
 
   else if (command['name'] == 'get_browser') {
-    getBrowserName();
-  } else {
     
+    getBrowserName();
   }
 }
 
 function handleDisconnect() {
   
-  if (browser.runtime.lastError) {
+  if(chrome.runtime.lastError) {
+    
+  } else {
     
   }
-  port = undefined;
-  // Reconnect after a delay
+  // Try to reconnect after a delay
   
-  reconnectTimer = setTimeout(reconnect, 5000);
+  setTimeout(reconnect, 1000);
 }
 
-
-/*
-On a click on the browser action, send the app a message.
-*/
-// browser.browserAction.onClicked.addListener(() => {
-//   // 
-//   // port.postMessage("ping");
-//
-//   
-//   listTabs();
-// });

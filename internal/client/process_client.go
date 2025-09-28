@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/tabctl/tabctl/internal/utils"
@@ -151,10 +150,8 @@ func (c *ProcessClient) ListTabs() ([]types.Tab, error) {
 			continue // Skip malformed lines
 		}
 
-		// Filter by prefix if provided
-		if c.prefix == "" || strings.HasPrefix(tab.ID, c.prefix) {
-			tabs = append(tabs, tab)
-		}
+		// Don't filter by prefix - tabs already have correct prefixes from browser
+		tabs = append(tabs, tab)
 	}
 
 	// Cache result

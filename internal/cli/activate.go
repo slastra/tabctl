@@ -40,8 +40,9 @@ func runActivateTab(tabID string, focused bool) error {
 	clients := pc.GetClients()
 
 	var targetClient api.Client
+	prefixWithDot := prefix + "."
 	for _, c := range clients {
-		if c.GetPrefix() == prefix+"." {
+		if c.GetPrefix() == prefixWithDot {
 			targetClient = c
 			break
 		}
