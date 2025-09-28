@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
@@ -13,7 +11,6 @@ import (
 
 var (
 	activateFocused bool
-	showWindowID    bool
 )
 
 var activateCmd = &cobra.Command{
@@ -23,16 +20,15 @@ var activateCmd = &cobra.Command{
 "<prefix>.<window_id>.<tab_id>"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runActivateTab(args[0], activateFocused, showWindowID)
+		return runActivateTab(args[0], activateFocused)
 	},
 }
 
 func init() {
 	activateCmd.Flags().BoolVar(&activateFocused, "focused", false, "make browser focused after tab activation")
-	activateCmd.Flags().BoolVar(&showWindowID, "window-id", false, "output the system window ID after activation")
 }
 
-func runActivateTab(tabID string, focused bool, showWindowID bool) error {
+func runActivateTab(tabID string, focused bool) error {
 	// Parse tab ID to get prefix
 	prefix, _, _, err := utils.ParseTabID(tabID)
 	if err != nil {
@@ -60,72 +56,6 @@ func runActivateTab(tabID string, focused bool, showWindowID bool) error {
 		return fmt.Errorf("failed to activate tab: %w", err)
 	}
 
-	if showWindowID {
-		// Get system window ID by title matching
-		windowID, err := getSystemWindowID(targetClient, tabID)
-		if err != nil {
-			return fmt.Errorf("failed to get window ID: %w", err)
-		}
-		fmt.Println(windowID)
-	} else {
-		fmt.Printf("Activated tab %s\n", tabID)
-	}
+	fmt.Printf("Activated tab %s\n", tabID)
 	return nil
-}
-
-// getSystemWindowID finds the system window ID for a tab by matching its title
-func getSystemWindowID(client api.Client, tabID string) (string, error) {
-	// Get the tab's title
-	tabs, err := client.ListTabs()
-	if err != nil {
-		return "", fmt.Errorf("failed to list tabs: %w", err)
-	}
-
-	var tabTitle string
-	for _, tab := range tabs {
-		// Tab.ID already contains the full ID (e.g., "f.1.1")
-		if tab.ID == tabID {
-			tabTitle = tab.Title
-			break
-		}
-	}
-
-	if tabTitle == "" {
-		return "", fmt.Errorf("could not find title for tab %s", tabID)
-	}
-
-	// Use wmctrl to find the window by title
-	wmctrlCmd := exec.Command("wmctrl", "-l")
-	output, err := wmctrlCmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to run wmctrl: %w", err)
-	}
-
-	// Search for the window with matching title
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, tabTitle) {
-			// Extract window ID (first field)
-			fields := strings.Fields(line)
-			if len(fields) > 0 {
-				return fields[0], nil
-			}
-		}
-	}
-
-	// If exact match fails, try partial match (first few words)
-	titleWords := strings.Fields(tabTitle)
-	if len(titleWords) > 3 {
-		shortTitle := strings.Join(titleWords[:3], " ")
-		for _, line := range lines {
-			if strings.Contains(line, shortTitle) {
-				fields := strings.Fields(line)
-				if len(fields) > 0 {
-					return fields[0], nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("could not find window for tab %s (title: %s)", tabID, tabTitle)
 }

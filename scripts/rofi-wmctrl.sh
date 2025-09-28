@@ -73,22 +73,15 @@ fi
 echo "Activating tab: $tab_id"
 $TABCTL activate --focused "$tab_id"
 
-# Extract window title from selection
-window_title=$(echo "$selected" | cut -d':' -f1 | sed 's/'"$SEP"'.*//')
-echo "Looking for window: $window_title"
+# Small delay to let the window title update
+sleep 0.1
 
-# Try to find and activate the window
-# Method 1: Search by exact title match
-window_id=$(wmctrl -l | grep -F "$window_title" | head -1 | awk '{print $1}')
+# Find the browser window - since we just activated the tab, the window title has changed
+# Try to find the active window first (most reliable after activation)
+window_id=$(xprop -root | grep "^_NET_ACTIVE_WINDOW" | cut -d' ' -f5)
 
-if [ -z "$window_id" ]; then
-    # Method 2: Search by partial match (first few words)
-    short_title=$(echo "$window_title" | cut -d' ' -f1-3)
-    window_id=$(wmctrl -l | grep -F "$short_title" | head -1 | awk '{print $1}')
-fi
-
-if [ -z "$window_id" ]; then
-    # Method 3: Try to find any browser window
+if [ -z "$window_id" ] || [ "$window_id" = "0x0" ]; then
+    # Fallback: Try to find any browser window
     for browser in Firefox Brave Chrome Chromium; do
         window_id=$(wmctrl -l | grep -i "$browser" | head -1 | awk '{print $1}')
         [ -n "$window_id" ] && break

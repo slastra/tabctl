@@ -66,10 +66,9 @@ Command-line interface using Cobra framework:
 **Core commands:**
 ```
 tabctl list                 # List all tabs
-tabctl activate <tab_id>    # Activate a tab
+tabctl activate <tab_id>    # Activate a tab (changes window title)
 tabctl close <tab_ids...>   # Close tabs
 tabctl open                 # Open URLs from stdin
-tabctl window-id <tab_id>   # Get system window ID
 tabctl query                # Filter tabs
 tabctl active              # Show active tabs
 tabctl windows             # List browser windows
@@ -80,29 +79,23 @@ tabctl windows             # List browser windows
 - `ParallelClient`: Manages multiple browser connections
 - Response caching for performance
 
-### 4. System Window Integration
+### 4. Window Manager Integration
 
-Bridge between browser windows and window manager:
+**Key insight:** Activating a tab changes the browser window's title
 
 ```
-Browser Tab → Tab Title → wmctrl -l → System Window ID
-                ↓
-          Activate Tab
-                ↓
-          Focus Window
+tabctl activate <tab_id> → Browser window title changes
+                    ↓
+            Window manager can now find it
+                    ↓
+            Focus/raise window by class or active window
 ```
 
-**Window ID detection strategy:**
-1. Activate the target tab
-2. Get tab title from browser
-3. Use `wmctrl -l` to list windows
-4. Match by title (exact or partial)
-5. Extract system window ID
-
-**Limitations:**
-- X11 only (wmctrl/xdotool dependency)
-- Wayland requires compositor-specific tools
-- Relies on unique window titles
+**Integration approach:**
+- No direct window manager dependency in tabctl
+- Scripts use the fact that active tab = window title
+- Can use xprop for active window or wmctrl by class
+- Desktop environment agnostic
 
 ## Communication Protocols
 
@@ -232,16 +225,15 @@ Mediator exits → Socket cleaned up
 8. CLI: Display to user
 ```
 
-### Activate Tab with Window ID
+### Activate Tab and Focus Window
 ```
-1. User: tabctl activate --window-id f.1.2
-2. CLI→Mediator: {"name": "activate_tab", "args": {"tab_id": "f.1.2"}}
+1. User: tabctl activate --focused f.1.2
+2. CLI→Mediator: {"name": "activate_tab", "args": {"tab_id": "f.1.2", "focused": true}}
 3. Mediator→Extension: Activate tab
 4. Extension: browser.tabs.update(tabId, {active: true})
-5. CLI: Get tab title from list
-6. CLI: Run wmctrl -l
-7. CLI: Match window by title
-8. CLI: Output window ID
+5. Browser: Window title changes to active tab's title
+6. Extension: browser.windows.update(windowId, {focused: true})
+7. Window manager: Can now identify window by title or active state
 ```
 
 ## Error Handling
@@ -336,7 +328,7 @@ nc -U /tmp/tabctl-4627.sock
 - Socket file exists but process dead
 - Wrong port for browser
 
-**"Window ID not found"**
-- wmctrl not installed
-- Running on Wayland
-- Window title changed
+**"Tab not found"**
+- Tab was closed
+- Wrong tab ID format
+- Browser not connected

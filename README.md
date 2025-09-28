@@ -6,7 +6,6 @@ Control browser tabs from the command line.
 
 - List, close, activate, and open tabs across multiple browsers
 - Works with Firefox, Chrome, Chromium, and Brave
-- System window ID detection for window manager integration
 - Rofi integration for quick tab switching
 - Virtual desktop support with wmctrl
 - Multiple output formats (TSV, JSON, simple)
@@ -61,11 +60,6 @@ tabctl close f.1.2 f.1.3
 # Open URLs in new tabs
 echo "https://example.com" | tabctl open
 
-# Get system window ID for a tab
-tabctl window-id f.1.2
-
-# Activate tab and get window ID
-tabctl activate --window-id f.1.2
 ```
 
 ### Query and Filter
@@ -99,27 +93,42 @@ tabctl list --no-headers
 
 ## Rofi Integration
 
-Use the included rofi script for quick tab switching:
+Included rofi scripts for quick tab switching:
 
+### For X11 with wmctrl:
 ```bash
 # Make script executable
-chmod +x scripts/tabctl-rofi-switch.sh
+chmod +x scripts/rofi-wmctrl.sh
 
 # Run with rofi
-./scripts/tabctl-rofi-switch.sh
+./scripts/rofi-wmctrl.sh
 ```
 
-This script will:
+### For Wayland with Hyprland:
+```bash
+# Make script executable
+chmod +x scripts/rofi-hyprctl.sh
+
+# Run with rofi
+./scripts/rofi-hyprctl.sh
+```
+
+Both scripts will:
 - List all open tabs
 - Allow fuzzy searching
 - Switch to selected tab
-- Handle virtual desktop switching automatically
+- Handle workspace/desktop switching automatically
 
 ### Bind to a hotkey
 
-Add to your window manager config (e.g., i3):
+**i3/Sway:**
 ```
-bindsym $mod+Tab exec ~/path/to/tabctl/scripts/tabctl-rofi-switch.sh
+bindsym $mod+Tab exec ~/path/to/tabctl/scripts/rofi-wmctrl.sh
+```
+
+**Hyprland:**
+```
+bind = $mainMod, Tab, exec, ~/path/to/tabctl/scripts/rofi-hyprctl.sh
 ```
 
 ## Architecture
@@ -156,9 +165,8 @@ Tab IDs include a browser prefix and window/tab numbers:
 - Browser extension loaded
 
 ### Optional
-- `wmctrl` - For window management on X11
-- `xdotool` - Alternative window management tool
 - `rofi` - For interactive tab switching
+- `wmctrl` or `xdotool` - For window management in rofi script
 
 ## Troubleshooting
 
@@ -171,9 +179,6 @@ Tab IDs include a browser prefix and window/tab numbers:
 - Fixed in latest version - mediators now auto-exit when browser closes
 - Manual cleanup: `pkill -f tabctl-mediator`
 
-### Window ID detection not working
-- Install wmctrl: `sudo apt install wmctrl` (Debian/Ubuntu)
-- For Wayland: Window detection has limited support
 
 ## Building from Source
 
