@@ -134,7 +134,7 @@ func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
 }
 
 // Fixed Chrome extension ID for development builds (generated from manifest key)
-const chromeDevExtensionID = "cidpgihmbpgbjanhpkolihgmnhdemdjl"
+const chromeDevExtensionID = "iifikbcifohpjakkcdlndafhpgfoipmp"
 
 // createManifestForBrowser creates a native messaging manifest for the specified browser
 func createManifestForBrowser(browser BrowserInfo, mediatorPath string) *NativeMessagingManifest {
