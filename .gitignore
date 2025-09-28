@@ -1,6 +1,6 @@
-# Binaries
-tabctl
-tabctl-mediator
+# Binaries (only in root directory)
+/tabctl
+/tabctl-mediator
 *.exe
 
 # Go build artifacts
@@ -9,7 +9,7 @@ tabctl-mediator
 *.so
 
 # Go module cache
-go.sum
+# (go.sum should be committed)
 
 # IDE
 .vscode/
