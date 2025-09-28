@@ -1,8 +1,8 @@
 # Maintainer: Shaun Lastra <shaun@slastra.dev>
-pkgname=tabctl
-pkgver=0.2.0
+pkgname=tabctl-git
+pkgver=0.2.0.r0.g$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 pkgrel=1
-pkgdesc="Command-line browser tab controller with rofi integration for multiple window managers"
+pkgdesc="Command-line browser tab controller with rofi integration for multiple window managers (git version)"
 arch=('x86_64')
 url="https://github.com/slastra/tabctl"
 license=('MIT')
@@ -18,12 +18,19 @@ optdepends=(
     'google-chrome: Chrome browser support'
     'firefox: Firefox browser support'
 )
-source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
-sha256sums=('0909dde8b99c85503ba87d30330fa0791d56b4cbf4ce111062425bc482724a16')
+provides=('tabctl')
+conflicts=('tabctl')
+source=("git+https://github.com/slastra/tabctl.git")
+sha256sums=('SKIP')
 install=tabctl.install
 
+pkgver() {
+    cd "tabctl"
+    printf "0.2.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
 build() {
-    cd "$pkgname-$pkgver"
+    cd "tabctl"
 
     export CGO_CPPFLAGS="${CPPFLAGS}"
     export CGO_CFLAGS="${CFLAGS}"
@@ -36,22 +43,22 @@ build() {
 }
 
 package() {
-    cd "$pkgname-$pkgver"
+    cd "tabctl"
 
     # Install binaries
     install -Dm755 tabctl "$pkgdir/usr/bin/tabctl"
     install -Dm755 tabctl-mediator "$pkgdir/usr/bin/tabctl-mediator"
 
     # Install rofi scripts
-    install -Dm755 scripts/rofi-wmctrl.sh "$pkgdir/usr/share/$pkgname/scripts/rofi-wmctrl.sh"
-    install -Dm755 scripts/rofi-hyprctl.sh "$pkgdir/usr/share/$pkgname/scripts/rofi-hyprctl.sh"
+    install -Dm755 scripts/rofi-wmctrl.sh "$pkgdir/usr/share/tabctl/scripts/rofi-wmctrl.sh"
+    install -Dm755 scripts/rofi-hyprctl.sh "$pkgdir/usr/share/tabctl/scripts/rofi-hyprctl.sh"
 
     # Install browser extensions
-    install -dm755 "$pkgdir/usr/share/$pkgname/extensions"
-    cp -r extensions/firefox "$pkgdir/usr/share/$pkgname/extensions/"
-    cp -r extensions/chrome "$pkgdir/usr/share/$pkgname/extensions/"
+    install -dm755 "$pkgdir/usr/share/tabctl/extensions"
+    cp -r extensions/firefox "$pkgdir/usr/share/tabctl/extensions/"
+    cp -r extensions/chrome "$pkgdir/usr/share/tabctl/extensions/"
 
     # Install documentation
-    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/tabctl/README.md"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/tabctl/LICENSE"
 }

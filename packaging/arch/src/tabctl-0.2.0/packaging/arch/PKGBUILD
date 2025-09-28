@@ -19,7 +19,7 @@ optdepends=(
     'firefox: Firefox browser support'
 )
 source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
-sha256sums=('0909dde8b99c85503ba87d30330fa0791d56b4cbf4ce111062425bc482724a16')
+sha256sums=('SKIP')
 install=tabctl.install
 
 build() {

@@ -17,6 +17,6 @@ pkgbase = tabctl
 	optdepends = google-chrome: Chrome browser support
 	optdepends = firefox: Firefox browser support
 	source = tabctl-0.2.0.tar.gz::https://github.com/slastra/tabctl/archive/v0.2.0.tar.gz
-	sha256sums = 0909dde8b99c85503ba87d30330fa0791d56b4cbf4ce111062425bc482724a16
+	sha256sums = SKIP
 
 pkgname = tabctl
