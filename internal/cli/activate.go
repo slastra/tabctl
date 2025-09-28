@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
 	"github.com/tabctl/tabctl/internal/utils"
+	"github.com/tabctl/tabctl/pkg/api"
 )
 
 var (
@@ -38,17 +39,15 @@ func runActivateTab(tabID string, focused bool) error {
 	pc := client.NewParallelClient(globalHost)
 	clients := pc.GetClients()
 
-	var targetClient client.Client
+	var targetClient api.Client
 	for _, c := range clients {
 		if c.GetPrefix() == prefix+"." {
-			if tc, ok := c.(*client.Client); ok {
-				targetClient = *tc
-				break
-			}
+			targetClient = c
+			break
 		}
 	}
 
-	if targetClient.HTTPClient == nil {
+	if targetClient == nil {
 		return fmt.Errorf("no mediator found for prefix %s", prefix)
 	}
 

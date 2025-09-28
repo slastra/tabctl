@@ -1,14 +1,20 @@
-# Maintainer: Your Name <your.email@example.com>
+# Maintainer: Shaun Lastra <shaun@slastra.dev>
 pkgname=tabctl
-pkgver=1.0.0
-pkgrel=1
-pkgdesc="Control browser tabs from the command line"
+pkgver=0.1.0
+pkgrel=2
+pkgdesc="Command-line browser tab controller with rofi integration and native messaging"
 arch=('x86_64')
 url="https://github.com/slastra/tabctl"
 license=('MIT')
 depends=('wmctrl')
 makedepends=('go' 'git')
-optdepends=('rofi: for rofi integration scripts')
+optdepends=(
+    'rofi: for rofi integration scripts'
+    'brave-bin: Brave browser support'
+    'chromium: Chromium browser support'
+    'google-chrome: Chrome browser support'
+    'firefox: Firefox browser support'
+)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 install=tabctl.install

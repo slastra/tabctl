@@ -3,6 +3,8 @@ package client
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -45,7 +47,7 @@ func DiscoverMediators(host string) []PortStatus {
 
 // IsPortAcceptingConnections checks if a port is accepting connections
 func IsPortAcceptingConnections(host string, port int) bool {
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	// Try to connect with a short timeout
 	conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
@@ -58,14 +60,34 @@ func IsPortAcceptingConnections(host string, port int) bool {
 	return true
 }
 
+// IsUnixSocketAvailable checks if a Unix socket exists for the given port
+func IsUnixSocketAvailable(port int) bool {
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = "/tmp"
+	}
+
+	socketPath := filepath.Join(runtimeDir, fmt.Sprintf("tabctl-%d.sock", port))
+
+	// Check if socket file exists
+	info, err := os.Stat(socketPath)
+	if err != nil {
+		return false
+	}
+
+	// Verify it's a socket
+	return info.Mode()&os.ModeSocket != 0
+}
+
 // FindAvailablePort finds the first available port from the default range
 func FindAvailablePort(host string) int {
 	if host == "" {
 		host = "localhost"
 	}
 
+	// For Unix sockets, check if the socket file exists
 	for _, port := range config.DefaultMediatorPorts {
-		if IsPortAcceptingConnections(host, port) {
+		if IsUnixSocketAvailable(port) {
 			return port
 		}
 	}
@@ -80,11 +102,11 @@ func FindAllAvailablePorts(host string) []int {
 	}
 
 	var available []int
-	statuses := DiscoverMediators(host)
 
-	for _, status := range statuses {
-		if status.Available {
-			available = append(available, status.Port)
+	// For Unix sockets, check directly
+	for _, port := range config.DefaultMediatorPorts {
+		if IsUnixSocketAvailable(port) {
+			available = append(available, port)
 		}
 	}
 
@@ -161,6 +183,6 @@ func CheckMediatorHealth(host string, port int) error {
 		return fmt.Errorf("mediator at %s:%d is not responding", host, port)
 	}
 
-	// TODO: Make actual health check HTTP request
+	// TODO: Make actual health check Unix socket request
 	return nil
 }

@@ -24,15 +24,10 @@ func ParseTabLine(line string) (types.Tab, error) {
 		return types.Tab{}, fmt.Errorf("invalid tab line format: %s", line)
 	}
 
-	// Parse tab ID to extract the numeric ID and window ID
-	_, windowIDStr, tabIDStr, err := ParseTabID(parts[0])
+	// Parse tab ID to extract the window ID
+	_, windowIDStr, _, err := ParseTabID(parts[0])
 	if err != nil {
 		return types.Tab{}, err
-	}
-
-	tabID, err := strconv.Atoi(tabIDStr)
-	if err != nil {
-		return types.Tab{}, fmt.Errorf("invalid tab ID number: %s", tabIDStr)
 	}
 
 	windowID, err := strconv.Atoi(windowIDStr)
@@ -41,10 +36,27 @@ func ParseTabLine(line string) (types.Tab, error) {
 	}
 
 	tab := types.Tab{
-		ID:       tabID,
+		ID:       parts[0], // Use the full tab ID string (e.g., "a.1.1")
 		Title:    parts[1],
 		URL:      parts[2],
 		WindowID: windowID,
+	}
+
+	// Parse additional fields if available (index, active, pinned)
+	if len(parts) >= 4 {
+		if index, err := strconv.Atoi(parts[3]); err == nil {
+			tab.Index = index
+		}
+	}
+	if len(parts) >= 5 {
+		if active, err := strconv.ParseBool(parts[4]); err == nil {
+			tab.Active = active
+		}
+	}
+	if len(parts) >= 6 {
+		if pinned, err := strconv.ParseBool(parts[5]); err == nil {
+			tab.Pinned = pinned
+		}
 	}
 
 	return tab, nil

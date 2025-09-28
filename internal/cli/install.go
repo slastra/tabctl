@@ -2,13 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tabctl/tabctl/internal/utils"
 )
 
-var (
-	installTests bool
-)
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -20,11 +19,34 @@ var installCmd = &cobra.Command{
 }
 
 func init() {
-	installCmd.Flags().BoolVar(&installTests, "tests", false, "install testing version of manifest for chromium")
+	// No flags needed - interactive mode is default
 }
 
 func runInstallMediator() error {
-	fmt.Println("Installing tabctl mediator...")
+	// Check if we're in a terminal
+	if !utils.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("interactive mode requires a terminal environment")
+	}
+
+	// Detect available browsers for selection (silent)
+	detected := detectInstalledBrowsers()
+
+	if len(detected) == 0 {
+		fmt.Println("No supported browsers detected.")
+		fmt.Println("Supported browsers: Firefox, Zen Browser, Chrome, Chromium, Brave")
+		return fmt.Errorf("no supported browsers found")
+	}
+
+	// Show interactive selection
+	browsers, err := selectBrowsersInteractive(detected)
+	if err != nil {
+		return fmt.Errorf("browser selection failed: %w", err)
+	}
+
+	if len(browsers) == 0 {
+		fmt.Println("No browsers selected for installation.")
+		return nil
+	}
 
 	// Get the path to tabctl-mediator binary
 	mediatorPath, err := findMediatorPath()
@@ -32,19 +54,43 @@ func runInstallMediator() error {
 		return fmt.Errorf("failed to find mediator: %v", err)
 	}
 
-	// Install for each browser
-	browsers := []string{"firefox", "chrome", "chromium", "brave"}
+	// Install for each selected browser (collect results)
+	var results []InstallResult
 	for _, browser := range browsers {
-		if err := installForBrowser(browser, mediatorPath, installTests); err != nil {
-			fmt.Printf("Warning: Failed to install for %s: %v\n", browser, err)
-		} else {
-			fmt.Printf("✓ Installed for %s\n", browser)
+		result := InstallResult{
+			Browser: browser,
+			Success: false,
 		}
+
+		if err := installForBrowserInfo(browser, mediatorPath); err != nil {
+			result.Error = err
+		} else {
+			result.Success = true
+		}
+
+		results = append(results, result)
 	}
 
-	fmt.Println("\nInstallation complete!")
-	fmt.Println("Firefox extension: https://addons.mozilla.org/firefox/addon/tabctl/")
-	fmt.Println("Chrome extension: https://chrome.google.com/webstore/detail/tabctl/...")
+	// Show results using bubbletea
+	return showInstallationResults(results)
+}
 
-	return nil
+// hasFirefoxBased checks if any detected browsers are Firefox-based
+func hasFirefoxBased(browsers []BrowserInfo) bool {
+	for _, browser := range browsers {
+		if browser.Type == "firefox" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasChromiumBased checks if any detected browsers are Chromium-based
+func hasChromiumBased(browsers []BrowserInfo) bool {
+	for _, browser := range browsers {
+		if browser.Type == "chromium" {
+			return true
+		}
+	}
+	return false
 }

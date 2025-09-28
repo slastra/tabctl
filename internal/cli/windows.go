@@ -2,9 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
+	"github.com/tabctl/tabctl/internal/utils"
 	"github.com/tabctl/tabctl/pkg/types"
 )
 
@@ -31,13 +33,23 @@ func runShowWindows() error {
 	// Organize tabs by window
 	windowMap := make(map[string]*types.Window)
 	for _, tab := range tabs {
-		// Create window key with prefix
-		prefix := getTabPrefix(tab)
-		windowKey := fmt.Sprintf("%s.%d", prefix, tab.WindowID)
+		// Extract prefix and window ID from tab ID (e.g., "a.1874581886.1874581981")
+		prefix, windowIDStr, _, err := utils.ParseTabID(tab.ID)
+		if err != nil {
+			continue // Skip malformed tab IDs
+		}
+
+		windowKey := fmt.Sprintf("%s.%s", prefix, windowIDStr)
+
+		// Convert window ID string to int for the Window struct
+		windowID, err := strconv.Atoi(windowIDStr)
+		if err != nil {
+			continue // Skip invalid window IDs
+		}
 
 		if _, exists := windowMap[windowKey]; !exists {
 			windowMap[windowKey] = &types.Window{
-				ID:       tab.WindowID,
+				ID:       windowID, // Use the parsed window ID
 				Tabs:     []types.Tab{},
 				TabCount: 0,
 			}

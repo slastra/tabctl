@@ -40,7 +40,6 @@ var DefaultMediatorPorts = []int{4625, 4626, 4627}
 
 // Default timeout values
 const (
-	HTTPTimeout      = 10 * time.Second
 	StdinTimeout     = 100 * time.Millisecond
 	ShutdownTimeout  = 5 * time.Second
 	TransportTimeout = 30 * time.Second

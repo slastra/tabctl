@@ -344,12 +344,12 @@ function listTabsOnSuccess(tabs) {
   // Make sure tabs are sorted by their index within a window
   tabs.sort(compareWindowIdTabId);
   for (let tab of tabs) {
-    var line = + tab.windowId + "." + tab.id + "\t" + tab.title + "\t" + tab.url;
+    var line = "a." + tab.windowId + "." + tab.id + "\t" + tab.title + "\t" + tab.url + "\t" + tab.index + "\t" + tab.active + "\t" + tab.pinned;
     console.log(line);
     lines.push(line);
   }
   // lines = lines.sort(naturalCompare);
-  port.postMessage(lines);
+  port.postMessage({result: lines});
 }
 
 function listTabs() {
@@ -357,15 +357,20 @@ function listTabs() {
 }
 
 function queryTabsOnSuccess(tabs) {
+  if (!tabs || !Array.isArray(tabs)) {
+    console.error('queryTabsOnSuccess received invalid tabs:', tabs);
+    port.postMessage({result: []});
+    return;
+  }
   tabs.sort(compareWindowIdTabId);
-  let lines = tabs.map(tab => `${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}`)
+  let lines = tabs.map(tab => `a.${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${tab.index}\t${tab.active}\t${tab.pinned}`)
   console.log(lines);
-  port.postMessage(lines);
+  port.postMessage({result: lines});
 }
 
 function queryTabsOnFailure(error) {
   console.error(error);
-  port.postMessage([]);
+  port.postMessage({result: []});
 }
 
 function queryTabs(query_info) {
@@ -425,13 +430,27 @@ function moveTabs(move_triplets) {
 }
 
 function closeTabs(tab_ids) {
-  browserTabs.close(tab_ids, () => port.postMessage('OK'));
+  if (!tab_ids || !Array.isArray(tab_ids)) {
+    console.error('closeTabs: tab_ids is undefined or not an array:', tab_ids);
+    port.postMessage({error: 'Invalid tab_ids parameter'});
+    return;
+  }
+
+  // Parse full tab IDs to extract just the numeric tab ID
+  const numericIds = tab_ids.map(id => {
+    if (typeof id === 'string' && id.includes('.')) {
+      const parts = id.split('.');
+      return parseInt(parts[parts.length - 1], 10);
+    }
+    return parseInt(id, 10);
+  });
+  browserTabs.close(numericIds, () => port.postMessage({result: 'OK'}));
 }
 
 function openUrls(urls, window_id, first_result="") {
   if (urls.length == 0) {
     console.log('Opening urls done');
-    port.postMessage([]);
+    port.postMessage({result: []});
     return;
   }
 
@@ -460,7 +479,7 @@ function openUrls(urls, window_id, first_result="") {
     }
     const data = Array.prototype.concat(...result)
     console.log(`Sending ids back: ${JSON.stringify(data)}`);
-    port.postMessage(data)
+    port.postMessage({result: data})
   });
 }
 
@@ -500,7 +519,11 @@ function updateTabs(updates) {
 }
 
 function activateTab(tab_id, focused) {
-  browserTabs.activate(tab_id, focused);
+  // Convert string tab ID to integer for Chrome API
+  const tabIdInt = parseInt(tab_id, 10);
+  browserTabs.activate(tabIdInt, focused);
+  // Send response to prevent hanging
+  port.postMessage({result: 'OK'});
 }
 
 function getActiveTabs() {
@@ -683,37 +706,37 @@ port.onMessage.addListener((command) => {
 
   else if (command['name'] == 'query_tabs') {
     console.log('Querying tabs...');
-    queryTabs(command['query_info']);
+    queryTabs(command['args']['query_info']);
   }
 
   else if (command['name'] == 'close_tabs') {
-    console.log('Closing tabs:', command['tab_ids']);
-    closeTabs(command['tab_ids']);
+    console.log('Closing tabs:', command['args']['tab_ids']);
+    closeTabs(command['args']['tab_ids']);
   }
 
   else if (command['name'] == 'move_tabs') {
-    console.log('Moving tabs:', command['move_triplets']);
-    moveTabs(command['move_triplets']);
+    console.log('Moving tabs:', command['args']['move_triplets']);
+    moveTabs(command['args']['move_triplets']);
   }
 
   else if (command['name'] == 'open_urls') {
-    console.log('Opening URLs:', command['urls'], command['window_id']);
-    openUrls(command['urls'], command['window_id']);
+    console.log('Opening URLs:', command['args']['urls'], command['args']['window_id']);
+    openUrls(command['args']['urls'], command['args']['window_id']);
   }
 
   else if (command['name'] == 'new_tab') {
-    console.log('Creating tab:', command['url']);
-    createTab(command['url']);
+    console.log('Creating tab:', command['args']['url']);
+    createTab(command['args']['url']);
   }
 
   else if (command['name'] == 'update_tabs') {
-    console.log('Updating tabs:', command['updates']);
-    updateTabs(command['updates']);
+    console.log('Updating tabs:', command['args']['updates']);
+    updateTabs(command['args']['updates']);
   }
 
   else if (command['name'] == 'activate_tab') {
-    console.log('Activating tab:', command['tab_id']);
-    activateTab(command['tab_id'], !!command['focused']);
+    console.log('Activating tab:', command['args']['tab_id']);
+    activateTab(command['args']['tab_id'], !!command['args']['focused']);
   }
 
   else if (command['name'] == 'get_active_tabs') {

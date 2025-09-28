@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
+	"github.com/tabctl/tabctl/pkg/api"
 )
 
 var openCmd = &cobra.Command{
@@ -58,22 +59,18 @@ func runOpenURLs(prefixWindowID string) error {
 	pc := client.NewParallelClient(globalHost)
 	clients := pc.GetClients()
 
-	var targetClient *client.Client
+	var targetClient api.Client
 	for _, c := range clients {
 		if c.GetPrefix() == prefix+"." {
-			if tc, ok := c.(*client.Client); ok {
-				targetClient = tc
-				break
-			}
+			targetClient = c
+			break
 		}
 	}
 
 	if targetClient == nil {
 		// If no client found with prefix, try using the first available
 		if len(clients) > 0 {
-			if tc, ok := clients[0].(*client.Client); ok {
-				targetClient = tc
-			}
+			targetClient = clients[0]
 		}
 	}
 

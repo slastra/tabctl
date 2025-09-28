@@ -92,7 +92,7 @@ func parseTabEditActions(content string, originalTabs []types.Tab) ([]TabEditAct
 	var actions []TabEditAction
 
 	lines := strings.Split(content, "\n")
-	editedTabs := make(map[int]types.Tab)
+	editedTabs := make(map[string]types.Tab)
 
 	// Parse edited tabs
 	for _, line := range lines {
@@ -147,9 +147,9 @@ func parseTabEditActions(content string, originalTabs []types.Tab) ([]TabEditAct
 		}
 
 		// Check if window changed
-		// Since tab IDs are now integers, we need to format them for comparison
-		originalTabStr := fmt.Sprintf("a.%d.%d", originalTab.WindowID, originalTab.ID)
-		newTabStr := fmt.Sprintf("a.%d.%d", tab.WindowID, tab.ID)
+		// Tab IDs are already strings, use them directly
+		originalTabStr := originalTab.ID
+		newTabStr := tab.ID
 		originalPrefix, originalWindow, _, _ := ParseTabID(originalTabStr)
 		newPrefix, newWindow, _, _ := ParseTabID(newTabStr)
 

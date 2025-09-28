@@ -31,6 +31,8 @@ func getLinuxNativeMessagingDir(browser, homeDir string) string {
 	switch browser {
 	case "firefox":
 		return filepath.Join(homeDir, ".mozilla", "native-messaging-hosts")
+	case "zen":
+		return filepath.Join(homeDir, ".zen", "native-messaging-hosts")
 	case "chrome":
 		return filepath.Join(homeDir, ".config", "google-chrome", "NativeMessagingHosts")
 	case "chromium":
@@ -47,6 +49,8 @@ func getDarwinNativeMessagingDir(browser, homeDir string) string {
 	switch browser {
 	case "firefox":
 		return filepath.Join(homeDir, "Library", "Application Support", "Mozilla", "NativeMessagingHosts")
+	case "zen":
+		return filepath.Join(homeDir, "Library", "Application Support", "Zen", "NativeMessagingHosts")
 	case "chrome":
 		return filepath.Join(homeDir, "Library", "Application Support", "Google", "Chrome", "NativeMessagingHosts")
 	case "chromium":
@@ -73,6 +77,8 @@ func getWindowsNativeMessagingDir(browser string) (string, error) {
 	switch browser {
 	case "firefox":
 		return filepath.Join(appData, "Mozilla", "NativeMessagingHosts"), nil
+	case "zen":
+		return filepath.Join(appData, "Zen", "NativeMessagingHosts"), nil
 	case "chrome":
 		return filepath.Join(appData, "Google", "Chrome", "Application", "NativeMessagingHosts"), nil
 	case "chromium":

@@ -1,0 +1,20 @@
+pkgbase = tabctl
+	pkgdesc = Command-line browser tab controller with rofi integration and native messaging
+	pkgver = 0.1.0
+	pkgrel = 2
+	url = https://github.com/slastra/tabctl
+	install = tabctl.install
+	arch = x86_64
+	license = MIT
+	makedepends = go
+	makedepends = git
+	depends = wmctrl
+	optdepends = rofi: for rofi integration scripts
+	optdepends = brave-bin: Brave browser support
+	optdepends = chromium: Chromium browser support
+	optdepends = google-chrome: Chrome browser support
+	optdepends = firefox: Firefox browser support
+	source = tabctl-0.1.0.tar.gz::https://github.com/slastra/tabctl/archive/v0.1.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = tabctl

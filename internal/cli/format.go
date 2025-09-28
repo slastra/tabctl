@@ -26,8 +26,7 @@ func FormatOutput(tabs []types.Tab) error {
 // formatTSV outputs tabs in TSV format
 func formatTSV(tabs []types.Tab) error {
 	for _, tab := range tabs {
-		tabID := fmt.Sprintf("%s.%d.%d", getTabPrefix(tab), tab.WindowID, tab.ID)
-		fmt.Printf("%s%s%s%s%s\n", tabID, delimiter, tab.Title, delimiter, tab.URL)
+		fmt.Printf("%s%s%s%s%s\n", tab.ID, delimiter, tab.Title, delimiter, tab.URL)
 	}
 	return nil
 }
@@ -48,7 +47,7 @@ func formatJSON(tabs []types.Tab) error {
 	jsonTabs := make([]JSONTab, len(tabs))
 	for i, tab := range tabs {
 		jsonTabs[i] = JSONTab{
-			ID:       fmt.Sprintf("%s.%d.%d", getTabPrefix(tab), tab.WindowID, tab.ID),
+			ID:       tab.ID,
 			Title:    tab.Title,
 			URL:      tab.URL,
 			WindowID: tab.WindowID,

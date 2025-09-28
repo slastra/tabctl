@@ -2,7 +2,7 @@ package types
 
 // Tab represents a browser tab
 type Tab struct {
-	ID       int    `json:"id"`       // Browser's internal tab ID
+	ID       string `json:"id"`       // Tab ID in format "prefix.window.tab"
 	Title    string `json:"title"`
 	URL      string `json:"url"`
 	WindowID int    `json:"windowId"`

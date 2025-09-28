@@ -4,7 +4,7 @@ package mediator
 
 // Command represents a command to send to the browser
 type Command struct {
-	Command string                 `json:"command"`
+	Command string                 `json:"name"`
 	Args    map[string]interface{} `json:"args,omitempty"`
 }
 
