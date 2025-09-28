@@ -1,208 +1,342 @@
 # TabCtl Architecture
 
-## Overview
+## System Overview
 
-TabCtl uses a multi-process architecture to bridge command-line operations with browser tab management.
+TabCtl provides command-line control of browser tabs through a multi-component architecture that bridges native browser APIs with Unix command-line tools.
 
 ```
-┌──────────┐    HTTP    ┌──────────────┐   Native    ┌─────────────┐
-│  tabctl  │ ─────────► │   Mediator   │ ◄────────► │   Browser   │
-│   CLI    │            │  (HTTP+NM)   │  Messaging  │  Extension  │
-└──────────┘            └──────────────┘             └─────────────┘
-     ▲                         │                           │
-     │                         ▼                           ▼
-     │                  ┌──────────────┐            ┌─────────────┐
-     └──────────────────│   SQLite     │            │ Browser API │
-       Search Results   │   FTS5 DB    │            │   (Tabs)    │
-                        └──────────────┘            └─────────────┘
+┌─────────────┐     ┌──────────────┐     ┌────────────────┐     ┌──────────────┐
+│   tabctl    │────▶│ Unix Socket  │────▶│ tabctl-mediator│────▶│   Browser    │
+│     CLI     │◀────│/tmp/tabctl-* │◀────│    (Native)    │◀────│  Extension   │
+└─────────────┘     └──────────────┘     └────────────────┘     └──────────────┘
+                                               │                         │
+                                               ▼                         ▼
+                                        Native Messaging            Browser APIs
+                                           Protocol                (tabs, windows)
 ```
 
-## Component Communication
+## Component Details
 
-### 1. CLI → Mediator (HTTP)
-- **Protocol**: HTTP REST API
-- **Ports**: 4625-4627 (one per browser)
-- **Why HTTP**: Enables multiple CLI instances, stateless operations
-- **Format**: JSON request/response
+### 1. Browser Extension (`extensions/`)
 
-### 2. Mediator ↔ Browser Extension (Native Messaging)
-- **Protocol**: Binary (4-byte length header + JSON payload)
-- **Channel**: stdin/stdout
-- **Lifecycle**: Browser launches mediator on startup
-- **Format**: JSON messages with command/response structure
+Browser-specific extensions that provide access to tab APIs:
 
-### 3. Browser Extension → Browser APIs
-- **APIs**: chrome.tabs.*, browser.tabs.*
-- **Permissions**: tabs, activeTab, nativeMessaging
-- **Operations**: List, close, activate, move, query tabs
+- **Firefox** (`extensions/firefox/`)
+  - Uses WebExtensions API
+  - Communicates via native messaging
+  - Tab IDs: Simple sequential numbers (e.g., `f.1.2`)
 
-## Key Design Decisions
+- **Chrome/Brave** (`extensions/chrome/`)
+  - Uses Chrome Extensions API
+  - Compatible with Chromium-based browsers
+  - Tab IDs: Large integers (e.g., `c.1874583011.1874583012`)
 
-### Why HTTP Between CLI and Mediator?
+**Key responsibilities:**
+- Listen for commands from mediator
+- Execute browser API calls (list, activate, close tabs)
+- Return results to mediator
+- Handle browser-specific quirks
 
-1. **Multiple CLI Instances**: Many terminals can connect to one mediator
-2. **Browser Lifecycle**: Mediator lives as long as browser is open
-3. **Port Discovery**: Each browser gets unique port for identification
-4. **Debugging**: Easy to test with curl/wget
-5. **Language Agnostic**: Any language can implement a client
+### 2. TabCtl Mediator (`cmd/tabctl-mediator/`)
 
-### Why Not Direct Native Messaging?
+Native messaging host that bridges browser extensions and CLI:
 
-- **Limitation**: Browser controls mediator lifecycle
-- **Limitation**: Can't multiplex stdin/stdout between browser and CLI
-- **Limitation**: One process per connection model doesn't scale
-
-## Dual-Mode Mediator Operation
-
-The mediator supports two operational modes:
-
-### Stdio Mode (Browser-Initiated)
+```go
+// Mediator lifecycle
+Browser launches mediator → stdin/stdout for native messaging
+                        → Unix socket server for CLI connections
+                        → EOF detection for auto-cleanup
 ```
-Browser Extension --[launches]--> tabctl-mediator
-                                   (stdio mode)
+
+**Key features:**
+- **Dual communication modes:**
+  - Native messaging (stdin/stdout) with browser
+  - Unix socket server for CLI connections
+- **Port allocation by browser:**
+  - 4625: Firefox
+  - 4626: Chrome/Chromium
+  - 4627: Brave
+- **Auto-cleanup:** Exits when browser closes (EOF on stdin)
+- **Socket paths:** `/tmp/tabctl-{port}.sock` (or `$XDG_RUNTIME_DIR`)
+
+### 3. TabCtl CLI (`cmd/tabctl/`)
+
+Command-line interface using Cobra framework:
+
+**Core commands:**
 ```
-- Launched via native messaging manifest
-- Communicates over stdin/stdout
-- Lifetime tied to browser
-
-### HTTP Mode (Standalone)
+tabctl list                 # List all tabs
+tabctl activate <tab_id>    # Activate a tab
+tabctl close <tab_ids...>   # Close tabs
+tabctl open                 # Open URLs from stdin
+tabctl window-id <tab_id>   # Get system window ID
+tabctl query                # Filter tabs
+tabctl active              # Show active tabs
+tabctl windows             # List browser windows
 ```
-User --[launches]--> tabctl-mediator --port 4625
-                     (HTTP server mode)
+
+**Client architecture:**
+- `ProcessClient`: Connects to Unix socket
+- `ParallelClient`: Manages multiple browser connections
+- Response caching for performance
+
+### 4. System Window Integration
+
+Bridge between browser windows and window manager:
+
 ```
-- Launched manually or via systemd/launchd
-- Provides HTTP API on specified port
-- Can serve multiple CLI clients
+Browser Tab → Tab Title → wmctrl -l → System Window ID
+                ↓
+          Activate Tab
+                ↓
+          Focus Window
+```
 
-## Port Assignment Strategy
+**Window ID detection strategy:**
+1. Activate the target tab
+2. Get tab title from browser
+3. Use `wmctrl -l` to list windows
+4. Match by title (exact or partial)
+5. Extract system window ID
 
-| Browser  | Default Port | Purpose                    |
-|----------|-------------|----------------------------|
-| Firefox  | 4625        | Primary browser            |
-| Chrome   | 4626        | Secondary browser          |
-| Chromium | 4627        | Development browser        |
-| Brave    | 4627        | Shares with Chromium       |
+**Limitations:**
+- X11 only (wmctrl/xdotool dependency)
+- Wayland requires compositor-specific tools
+- Relies on unique window titles
 
-## Connection Resilience
+## Communication Protocols
 
-### Retry Strategy
-- Exponential backoff: 100ms, 200ms, 400ms, 800ms
-- Max retries: 3
-- Circuit breaker after 3 consecutive failures
+### Native Messaging Protocol
 
-### Connection Pooling
-- Keep-alive connections per mediator
-- Max idle connections: 10
-- Connection timeout: 10 seconds
+Browser ↔ Mediator communication:
 
-### Health Checks
-- Endpoint: GET /
-- Frequency: Every 30 seconds when idle
-- Automatic rediscovery on failure
+```json
+// Request (stdin)
+{
+  "id": 1,
+  "command": "list",
+  "args": {}
+}
 
-## Security Model
+// Response (stdout)
+{
+  "id": 1,
+  "result": [
+    {"id": "f.1.1", "title": "Example", "url": "https://example.com"}
+  ]
+}
+```
 
-### Network Security
-- **Binding**: localhost only (127.0.0.1)
-- **No external access**: Firewall-safe by design
-- **No authentication**: Localhost-only trust model
+Message format:
+- 4-byte message length (native endianness)
+- JSON payload
+- Synchronous request/response
 
-### Native Messaging Security
-- **Manifest-based**: Only allowed extensions can connect
-- **Browser validation**: Browser verifies mediator binary
-- **Path restrictions**: Absolute paths in manifests
+### Unix Socket Protocol
+
+CLI ↔ Mediator communication:
+
+```json
+// Request
+{
+  "name": "list_tabs",
+  "args": {}
+}
+
+// Response
+[
+  "f.1.1\tExample\thttps://example.com\tfalse"
+]
+```
+
+Features:
+- JSON-encoded commands
+- TSV responses for compatibility
+- Connection per request
+- Automatic socket cleanup
+
+## Tab ID Format
+
+Tab IDs encode browser, window, and tab information:
+
+```
+Format: <prefix>.<window_id>.<tab_id>
+
+Firefox:    f.1.2      (window 1, tab 2)
+Chrome:     c.1874583011.1874583012
+Brave:      c.2094732819.2094732820
+```
+
+**Prefix mapping:**
+- `f.` - Firefox (port 4625)
+- `c.` - Chrome/Chromium/Brave (ports 4626-4627)
+
+## Installation Flow
+
+1. **Build binaries:**
+   ```bash
+   go build -o tabctl ./cmd/tabctl
+   go build -o tabctl-mediator ./cmd/tabctl-mediator
+   ```
+
+2. **Register native messaging host:**
+   ```bash
+   ./tabctl install
+   ```
+
+   Creates manifests in:
+   - Firefox: `~/.mozilla/native-messaging-hosts/`
+   - Chrome: `~/.config/google-chrome/NativeMessagingHosts/`
+   - Brave: `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/`
+
+3. **Load browser extension:**
+   - Developer mode required
+   - Point to `extensions/firefox/` or `extensions/chrome/`
+
+## Process Management
+
+### Mediator Lifecycle
+
+```
+Browser starts
+    ↓
+Extension loaded
+    ↓
+First native message → Spawn mediator
+    ↓
+Mediator runs (stdin/stdout connected)
+    ↓
+Browser closes → EOF on stdin
+    ↓
+Mediator exits → Socket cleaned up
+```
+
+### Socket Management
+
+- **Location:** `/tmp/tabctl-{port}.sock` or `$XDG_RUNTIME_DIR/tabctl-{port}.sock`
+- **Permissions:** User-only (0700)
+- **Cleanup:** Automatic on mediator exit
+- **Conflict detection:** Check existing socket before binding
 
 ## Data Flow Examples
 
 ### List Tabs
 ```
-1. CLI: tabctl list
-2. CLI → HTTP GET /list_tabs → Mediator (port 4625,4626,4627)
-3. Mediator → Native Message {command: "list_tabs"} → Extension
-4. Extension → chrome.tabs.query({}) → Browser
-5. Browser → Tab array → Extension
-6. Extension → Response → Mediator
-7. Mediator → HTTP Response → CLI
-8. CLI: Display formatted tab list
+1. User: tabctl list
+2. CLI: Connect to Unix socket
+3. CLI→Mediator: {"name": "list_tabs"}
+4. Mediator→Extension: {"command": "list"}
+5. Extension: chrome.tabs.query({})
+6. Extension→Mediator: [tabs array]
+7. Mediator→CLI: TSV formatted tabs
+8. CLI: Display to user
 ```
 
-### Close Tab
+### Activate Tab with Window ID
 ```
-1. CLI: tabctl close a.1.123
-2. CLI → HTTP GET /close_tabs/a.1.123 → Mediator (port 4625)
-3. Mediator → Native Message {command: "close_tabs", args: {tabIds: [123]}} → Extension
-4. Extension → chrome.tabs.remove(123) → Browser
-5. Browser → Success → Extension
-6. Extension → Response → Mediator
-7. Mediator → HTTP Response "OK" → CLI
+1. User: tabctl activate --window-id f.1.2
+2. CLI→Mediator: {"name": "activate_tab", "args": {"tab_id": "f.1.2"}}
+3. Mediator→Extension: Activate tab
+4. Extension: browser.tabs.update(tabId, {active: true})
+5. CLI: Get tab title from list
+6. CLI: Run wmctrl -l
+7. CLI: Match window by title
+8. CLI: Output window ID
 ```
-
-## Performance Characteristics
-
-### Latency
-- HTTP round-trip: ~5-10ms (localhost)
-- Native messaging: ~1-2ms
-- Browser API: ~10-50ms (depends on operation)
-- Total operation: ~20-70ms
-
-### Throughput
-- List tabs: ~1000 tabs in 200ms
-- Close tabs: ~100 tabs/second
-- Text extraction: ~50 tabs/second
-
-### Scalability
-- Concurrent CLI operations: Unlimited (HTTP-based)
-- Max tabs handled: ~5000 per browser
-- Memory usage: ~20MB baseline, +1MB per 100 tabs
 
 ## Error Handling
 
-### Connection Errors
-- Port not available → Try next port
-- Mediator not responding → Retry with backoff
-- Browser not running → Report clearly to user
+### Connection Failures
+- Mediator not running → Start instructions
+- Socket permission denied → Check user/permissions
+- Browser not responding → Extension not loaded
 
-### Protocol Errors
-- Invalid JSON → Log and return error
-- Unknown command → Return error response
-- Timeout → Retry once, then fail
+### Browser-Specific Issues
+- Firefox: Requires browser restart after install
+- Chrome: Security policy may block native messaging
+- Brave: Shields may interfere with extension
 
-### Browser Errors
-- Tab doesn't exist → Ignore silently
-- Permission denied → Report to user
-- Extension not installed → Installation instructions
+## Performance Optimizations
+
+1. **Response Caching:**
+   - Cache list results for 10 seconds
+   - Invalidate on write operations
+
+2. **Parallel Queries:**
+   - Query all browsers simultaneously
+   - Merge results for unified view
+
+3. **Unix Socket:**
+   - Lower latency than HTTP
+   - No network overhead
+   - Direct process communication
+
+## Security Considerations
+
+1. **Unix Socket Permissions:**
+   - User-only access (0700)
+   - No network exposure
+
+2. **Native Messaging:**
+   - Browser-enforced manifest validation
+   - Limited to registered extensions
+
+3. **Command Validation:**
+   - Input sanitization in mediator
+   - Tab ID format validation
 
 ## Future Enhancements
 
-### Planned
-- WebSocket support for real-time updates
-- Batch operations for performance
-- Tab content caching layer
-- Multi-browser synchronization
+### Planned Features
+- Wayland window management support
+- Tab content extraction (text, HTML)
+- Tab grouping and workspace management
+- Remote browser control
+- WebSocket support for persistent connections
 
-### Under Consideration
-- gRPC instead of HTTP
-- Direct browser DevTools protocol integration
-- Cloud sync capability
-- Plugin architecture for extensibility
+### Architecture Improvements
+- Plugin system for window managers
+- Configurable mediator ports
+- Multi-user socket namespacing
+- D-Bus integration for Linux desktop
 
-## Development Guidelines
+## Debugging
 
-### Adding New Commands
-1. Define command in `pkg/types/`
-2. Add CLI command in `internal/cli/`
-3. Add HTTP endpoint in `internal/mediator/server.go`
-4. Add native messaging handler in extension
-5. Test with curl first, then CLI
+### Enable Debug Logging
+```bash
+export TABCTL_DEBUG=1
+tabctl list
+```
 
-### Debugging
-1. Enable debug logging: `tabctl --debug`
-2. Check mediator logs: `~/.cache/tabctl/mediator.log`
-3. Test HTTP directly: `curl http://localhost:4625/list_tabs`
-4. Verify extension: Browser developer console
+### Check Mediator Status
+```bash
+# See if mediator is running
+ps aux | grep tabctl-mediator
 
-### Testing Strategy
-- Unit tests: Each component in isolation
-- Integration tests: CLI → Mediator → Mock browser
-- End-to-end tests: Full stack with real browser
-- Performance tests: Load testing with many tabs
+# Check socket exists
+ls -la /tmp/tabctl-*.sock
+
+# Test socket connection
+nc -U /tmp/tabctl-4627.sock
+```
+
+### Browser Extension Debugging
+- Firefox: `about:debugging` → This Firefox
+- Chrome/Brave: `chrome://extensions/` → Developer mode
+
+### Common Issues
+
+**"No mediator found"**
+- Browser not running
+- Extension not loaded
+- Native messaging not registered
+
+**"Connection refused"**
+- Mediator crashed
+- Socket file exists but process dead
+- Wrong port for browser
+
+**"Window ID not found"**
+- wmctrl not installed
+- Running on Wayland
+- Window title changed
