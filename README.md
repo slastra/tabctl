@@ -6,10 +6,11 @@ Control browser tabs from the command line.
 
 - List, close, activate, and open tabs across multiple browsers
 - Works with Firefox, Chrome, Chromium, and Brave
+- System window ID detection for window manager integration
 - Rofi integration for quick tab switching
 - Virtual desktop support with wmctrl
 - Multiple output formats (TSV, JSON, simple)
-- Single binary with no dependencies
+- Automatic mediator cleanup when browser closes
 
 ## Installation
 
@@ -48,14 +49,23 @@ For Firefox:
 # List all tabs
 tabctl list
 
-# Activate a tab
-tabctl activate a.123.456
+# Activate a tab (Firefox)
+tabctl activate f.1.2
+
+# Activate a tab (Chrome/Brave)
+tabctl activate c.1874583011.1874583012
 
 # Close tabs
-tabctl close a.123.456 a.123.457
+tabctl close f.1.2 f.1.3
 
 # Open URLs in new tabs
-echo "https://example.com" | tabctl open a.0
+echo "https://example.com" | tabctl open
+
+# Get system window ID for a tab
+tabctl window-id f.1.2
+
+# Activate tab and get window ID
+tabctl activate --window-id f.1.2
 ```
 
 ### Query and Filter
@@ -117,13 +127,19 @@ bindsym $mod+Tab exec ~/path/to/tabctl/scripts/tabctl-rofi-switch.sh
 TabCtl uses native messaging to communicate with browser extensions:
 
 ```
-tabctl CLI → HTTP → tabctl-mediator → Native Messaging → Browser Extension
+tabctl CLI → Unix Socket → tabctl-mediator → Native Messaging → Browser Extension
 ```
 
-The mediator runs on ports:
-- 4625: Firefox
-- 4626: Chrome/Chromium
-- 4627: Brave
+The mediator runs on different ports for each browser:
+- 4625: Firefox (prefix: f.)
+- 4626: Chrome/Chromium (prefix: c.)
+- 4627: Brave (prefix: c.)
+
+### Tab ID Format
+
+Tab IDs include a browser prefix and window/tab numbers:
+- Firefox: `f.1.2` (f.windowID.tabID) - uses simple sequential numbers
+- Chrome/Brave: `c.1874583011.1874583012` - uses large integer IDs
 
 ## Configuration
 
@@ -133,17 +149,48 @@ The mediator runs on ports:
 - `TABCTL_DEBUG`: Enable debug logging
 - `TABCTL_PORT`: Override mediator port
 
+## Dependencies
+
+### Required
+- Go 1.19+ (for building)
+- Browser extension loaded
+
+### Optional
+- `wmctrl` - For window management on X11
+- `xdotool` - Alternative window management tool
+- `rofi` - For interactive tab switching
+
+## Troubleshooting
+
+### Browser doesn't detect mediator
+- Restart browser after running `tabctl install`
+- Check if mediator is registered: `ls ~/.mozilla/native-messaging-hosts/`
+- Reload extension after browser restart
+
+### Mediator processes accumulating
+- Fixed in latest version - mediators now auto-exit when browser closes
+- Manual cleanup: `pkill -f tabctl-mediator`
+
+### Window ID detection not working
+- Install wmctrl: `sudo apt install wmctrl` (Debian/Ubuntu)
+- For Wayland: Window detection has limited support
+
 ## Building from Source
 
 ```bash
-# Build for current platform
-make build
+# Clone repository
+git clone https://github.com/slastra/tabctl.git
+cd tabctl
+
+# Build both binaries
+go build -o tabctl ./cmd/tabctl
+go build -o tabctl-mediator ./cmd/tabctl-mediator
 
 # Run tests
-make test
+go test ./...
 
-# Format code
-make fmt
+# Install
+./tabctl install
 ```
 
 ## License

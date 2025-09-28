@@ -4,34 +4,44 @@
 TabCtl is a standalone Go implementation of a browser tab controller, inspired by BroTab but completely independent. It allows controlling browser tabs from the command line with excellent rofi integration.
 
 ## Current Status
-- Core functionality implemented and working
-- Browser extensions updated to use `tabctl_mediator` instead of `brotab_mediator`
-- Native messaging registration via `tabctl install` command
-- Repository published at https://github.com/slastra/tabctl
+- ✅ All core commands working (list, close, activate, open, query, etc.)
+- ✅ Browser extensions working for Firefox and Chrome/Brave
+- ✅ Automatic mediator cleanup when browser closes (EOF detection)
+- ✅ System window ID detection via wmctrl
+- ✅ Browser-specific prefixes (f. for Firefox, c. for Chrome/Brave)
+- ✅ Socket conflict detection prevents duplicate mediators
+- ✅ Native messaging registration via `tabctl install` command
+- ✅ Repository published at https://github.com/slastra/tabctl
 
 ## Architecture
 ```
-Browser Extension → Native Messaging → tabctl-mediator → HTTP → tabctl CLI
+Browser Extension ← Native Messaging (stdio) → tabctl-mediator ← Unix Socket → tabctl CLI
 ```
 
 ## Key Components
 - **tabctl**: CLI binary (uses Cobra framework)
-- **tabctl-mediator**: Native messaging host and HTTP server
+- **tabctl-mediator**: Native messaging host with Unix socket server
 - **extensions/**: Browser extensions for Firefox and Chrome/Brave
 
 ## Working Commands
-- `tabctl list` - List all tabs (✓ working)
-- `tabctl close <tab_ids>` - Close tabs (✓ working)
-- `tabctl activate <tab_id>` - Activate tab (has HTTP 404 issue with brotab mediator)
-- `tabctl query` - Filter tabs
-- `tabctl open` - Open URLs
+- `tabctl list` - List all tabs
+- `tabctl close <tab_ids>` - Close tabs
+- `tabctl activate <tab_id>` - Activate tab
+- `tabctl activate --window-id <tab_id>` - Activate and return system window ID
+- `tabctl window-id <tab_id>` - Get system window ID for tab
+- `tabctl query` - Filter tabs with conditions
+- `tabctl open` - Open URLs from stdin
 - `tabctl active` - Show active tabs
-- `tabctl windows` - List windows
+- `tabctl windows` - List browser windows
 
-## Recent Fixes
-- Fixed prefix comparison bug where `ParseTabID` returns "a" but `GetPrefix` returns "a."
-- Close command now works correctly
-- Native messaging manifests properly configured
+## Recent Improvements
+- Mediator auto-exits when browser closes (EOF detection on stdin)
+- Socket conflict detection prevents multiple mediators on same port
+- System window ID detection using wmctrl for window manager integration
+- Firefox extension handles reconnection gracefully
+- Browser-specific tab ID prefixes (f. for Firefox, c. for Chrome/Brave)
+- Fixed activate command by correcting prefix handling
+- Removed unnecessary timeout delays in mediator shutdown
 
 ## Installation Steps
 1. Build: `go build -o tabctl ./cmd/tabctl && go build -o tabctl-mediator ./cmd/tabctl-mediator`
