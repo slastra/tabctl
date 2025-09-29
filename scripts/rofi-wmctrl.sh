@@ -1,102 +1,64 @@
 #!/bin/bash
-# tabctl-rofi-switch.sh - Complete tab switcher with virtual desktop support
-# Usage: ./tabctl-rofi-switch.sh
+# This script is used to activate a tab/window/workspace using rofi with tabctl
 
-# Configuration
-TABCTL="${TABCTL:-tabctl}"
-ROFI_THEME="${ROFI_THEME:-}"
-SEP="␞"
+sep="␞"
+# Get list of tabs: "Title: URL [separator] tab_id"
+tabs=$(tabctl list | awk -v sep="$sep" -F "\t" '{if ($2) print $2 ": " $3 sep $1}')
+tabs=$(echo -e "New Window\n$tabs")
 
-# Colors for rofi (optional)
-ROFI_OPTIONS=""
-if [ -n "$ROFI_THEME" ]; then
-    ROFI_OPTIONS="-theme $ROFI_THEME"
-fi
+# Show rofi menu and get selection
+selected=$(echo "$tabs" \
+    | rofi -dmenu -i -p "󱦞" -display-columns 1 -display-column-separator "$sep" -theme ~/.config/rofi/browser-tabs.rasi \
+    | head -1)
 
-# Get list of tabs formatted for display
-get_tabs() {
-    # Add "New Window" option
-    echo -e "New Window${SEP}new"
-
-    # Format tabs for display
-    $TABCTL list --target "${TABCTL_TARGET:-localhost:4625}" | while IFS=$'\t' read -r id title url; do
-        # Skip empty lines
-        [ -z "$id" ] && continue
-
-        # Truncate title for display
-        display_title="$title"
-        if [ ${#display_title} -gt 60 ]; then
-            display_title="${display_title:0:57}..."
+if [ "$selected" ]; then
+    if [ "$selected" == "New Window" ]; then
+        # Open new browser window (try common browsers)
+        if command -v brave &> /dev/null; then
+            brave
+        elif command -v firefox &> /dev/null; then
+            firefox
+        elif command -v chromium &> /dev/null; then
+            chromium
+        elif command -v google-chrome &> /dev/null; then
+            google-chrome
         fi
-
-        # Extract domain from URL
-        domain=$(echo "$url" | sed -E 's|https?://([^/]+).*|\1|')
-        if [ ${#domain} -gt 40 ]; then
-            domain="${domain:0:37}..."
-        fi
-
-        # Output format: "Title: domain ␞ tab_id"
-        echo -e "${display_title}: ${domain}${SEP}${id}"
-    done
-}
-
-# Main selection
-selected=$(get_tabs | rofi -dmenu -i -p "󰖟 " \
-    -display-columns 1 \
-    -display-column-separator "$SEP" \
-    $ROFI_OPTIONS)
-
-# Exit if nothing selected
-[ -z "$selected" ] && exit 0
-
-# Extract tab ID
-tab_id=$(echo "$selected" | awk -F "$SEP" '{print $2}')
-
-if [ "$tab_id" = "new" ]; then
-    # Open new browser window - try to detect which browser is running
-    if pgrep -x firefox > /dev/null; then
-        firefox --new-window &
-    elif pgrep -x brave > /dev/null; then
-        brave --new-window &
-    elif pgrep -x chrome > /dev/null; then
-        google-chrome --new-window &
-    elif pgrep -x chromium > /dev/null; then
-        chromium --new-window &
-    else
-        # Fallback to default browser
-        xdg-open "https://google.com" &
+        exit 0
     fi
-    exit 0
-fi
 
-# Activate the selected tab
-echo "Activating tab: $tab_id"
-$TABCTL activate --focused "$tab_id"
+    # Extract tab ID from selection
+    tab_id=$(echo "$selected" | awk -F "$sep" '{print $2}')
 
-# Small delay to let the window title update
-sleep 0.1
+    # Activate the tab
+    tabctl activate "$tab_id"
 
-# Find the browser window - since we just activated the tab, the window title has changed
-# Try to find the active window first (most reliable after activation)
-window_id=$(xprop -root | grep "^_NET_ACTIVE_WINDOW" | cut -d' ' -f5)
+    # Give the browser a moment to switch tabs
+    sleep 0.2
 
-if [ -z "$window_id" ] || [ "$window_id" = "0x0" ]; then
-    # Fallback: Try to find any browser window
-    for browser in Firefox Brave Chrome Chromium; do
-        window_id=$(wmctrl -l | grep -i "$browser" | head -1 | awk '{print $1}')
-        [ -n "$window_id" ] && break
-    done
-fi
+    # Get the active tab's title after activation
+    active_tab_info=$(tabctl list | grep -E "^${tab_id}\s" | head -1)
 
-if [ -n "$window_id" ]; then
-    echo "Activating window: $window_id"
-    # -i flag uses window ID, -a activates (switches desktop and raises)
-    wmctrl -i -a "$window_id"
-else
-    echo "Could not find window to activate"
-    # As a last resort, try to activate by class
-    wmctrl -x -a "firefox" 2>/dev/null || \
-    wmctrl -x -a "brave-browser" 2>/dev/null || \
-    wmctrl -x -a "google-chrome" 2>/dev/null || \
-    wmctrl -x -a "chromium" 2>/dev/null
+    if [ "$active_tab_info" ]; then
+        # Extract the title from the active tab info
+        tab_title=$(echo "$active_tab_info" | cut -f2)
+
+        # Find window by partial title match (browsers often append " - Browser Name")
+        # First try exact match, then partial match
+        window_id=$(wmctrl -l | grep -F "$tab_title" | head -1 | cut -d" " -f1)
+
+        if [ -z "$window_id" ]; then
+            # Try partial match (first part of title)
+            partial_title=$(echo "$tab_title" | cut -d' ' -f1-5)
+            window_id=$(wmctrl -l | grep -F "$partial_title" | head -1 | cut -d" " -f1)
+        fi
+
+        if [ "$window_id" ]; then
+            # Focus the window
+            wmctrl -i -a "$window_id"
+        else
+            echo "Could not find window for tab: $tab_title" >&2
+        fi
+    else
+        echo "Could not get info for activated tab: $tab_id" >&2
+    fi
 fi
