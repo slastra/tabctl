@@ -3,16 +3,9 @@ layout: home
 title: Home
 ---
 
-# TabCtl
-
 Control your browser tabs from the command line.
 
 ![TabCtl in action](screenshots/list.webp)
-
-## Quick Links
-- [GitHub Repository](https://github.com/slastra/tabctl)
-- [Architecture](./ARCHITECTURE.html)
-- [Privacy Policy](./PRIVACY-POLICY.html)
 
 ## Usage
 

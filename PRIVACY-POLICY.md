@@ -1,4 +1,4 @@
-# Privacy Policy for TabCtl Browser Extension
+# Privacy Policy
 
 **Last Updated: September 28, 2024**
 

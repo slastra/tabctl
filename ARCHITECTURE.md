@@ -1,4 +1,4 @@
-# TabCtl Architecture
+# Architecture
 
 ## Overview
 
@@ -7,10 +7,10 @@ TabCtl uses a D-Bus-based architecture to enable command-line control of browser
 ## Component Architecture
 
 ```
-┌─────────────┐     Native      ┌──────────────┐      D-Bus       ┌────────┐
-│   Browser   │    Messaging     │   Mediator   │     Session      │ TabCtl │
+┌─────────────┐     Native       ┌──────────────┐      D-Bus      ┌────────┐
+│   Browser   │    Messaging     │   Mediator   │     Session     │ TabCtl │
 │  Extension  │ <────stdio────>  │   Process    │ <─────Bus────>  │   CLI  │
-└─────────────┘                  └──────────────┘                  └────────┘
+└─────────────┘                  └──────────────┘                 └────────┘
 ```
 
 ## Components
