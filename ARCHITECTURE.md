@@ -1,5 +1,3 @@
-# Architecture
-
 ## Overview
 
 TabCtl uses a D-Bus-based architecture to enable command-line control of browser tabs. The system consists of three main components that communicate through well-defined interfaces.
