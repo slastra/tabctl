@@ -1,9 +1,7 @@
 ---
 layout: home
-title: TabCtl - Command-Line Browser Tab Control
+title: TabCtl - CLI Browser Tab Control
 ---
-
-# TabCtl
 
 **Command-line browser tab control with seamless desktop integration.**
 
