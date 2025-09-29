@@ -13,10 +13,11 @@
     "16": "tabctl-icon-16x16.png"
   },
   "permissions": ["nativeMessaging", "tabs"],
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "tabctl@slastra.github.io",
-      "strict_min_version": "50.0"
+      "strict_min_version": "54.0",
+      "data_collection_permissions": []
     }
   }
 }
