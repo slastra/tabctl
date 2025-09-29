@@ -9,14 +9,8 @@ TabCtl uses a D-Bus-based architecture to enable command-line control of browser
 
 ## Component Architecture
 
-```mermaid
-graph LR
-    A[Browser Extension] -->|Native Messaging<br/>stdio| B[Mediator Process]
-    B -->|D-Bus<br/>Session Bus| C[TabCtl CLI]
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
-    style C fill:#bfb,stroke:#333,stroke-width:2px
+```
+Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl CLI
 ```
 
 ## Components
@@ -81,65 +75,37 @@ graph LR
 
 ### List Tabs Example
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI as TabCtl CLI
-    participant DBus as D-Bus
-    participant Med as Mediator
-    participant Ext as Extension
-    participant Browser
-
-    User->>CLI: tabctl list
-    CLI->>DBus: Discover services
-    DBus-->>CLI: Firefox, Brave services
-
-    loop For each browser
-        CLI->>DBus: ListTabs()
-        DBus->>Med: ListTabs()
-        Med->>Ext: {"name": "list_tabs"}
-        Ext->>Browser: chrome.tabs.query()
-        Browser-->>Ext: Tab data
-        Ext-->>Med: TSV formatted tabs
-        Med-->>DBus: TabInfo[]
-        DBus-->>CLI: Tab list
-    end
-
-    CLI->>User: Display formatted tabs
+```
+1. User executes: tabctl list
+2. CLI discovers D-Bus services (Firefox, Brave)
+3. For each browser:
+   - CLI calls ListTabs() via D-Bus
+   - Mediator receives D-Bus call
+   - Mediator sends {"name": "list_tabs"} to extension
+   - Extension queries browser tabs API
+   - Extension returns TSV formatted data
+   - Mediator converts to TabInfo[] for D-Bus
+   - CLI receives and formats output
+4. CLI displays combined results to user
 ```
 
 ### Activate Tab Example
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI as TabCtl CLI
-    participant DBus as D-Bus
-    participant Med as Mediator
-    participant Ext as Extension
-    participant Browser
-    participant WM as Window Manager
-
-    User->>CLI: tabctl activate f.1.2
-    CLI->>CLI: Parse tab ID (Firefox)
-    CLI->>DBus: ActivateTab("f.1.2")
-    DBus->>Med: ActivateTab("f.1.2")
-    Med->>Ext: {"name": "activate_tab",<br/>"args": {"tab_id": "2"}}
-    Ext->>Browser: tabs.update(2, {active: true})
-    Browser-->>Ext: Success
-    Ext->>Browser: windows.update(windowId,<br/>{focused: true})
-
-    alt Firefox
-        Browser->>WM: Focus window request
-        WM->>WM: Switch desktop & focus
-    else Chrome/Brave
-        Browser->>WM: Focus window (current desktop only)
-    end
-
-    Ext-->>Med: {"result": "activated"}
-    Med-->>DBus: Success
-    DBus-->>CLI: Success
-    CLI->>User: "Activated tab f.1.2"
+```
+1. User executes: tabctl activate f.1.2
+2. CLI parses tab ID to determine browser (Firefox)
+3. CLI sends ActivateTab("f.1.2") via D-Bus
+4. Mediator receives call and forwards to extension:
+   {"name": "activate_tab", "args": {"tab_id": "2"}}
+5. Extension activates tab:
+   - tabs.update(2, {active: true})
+   - windows.update(windowId, {focused: true})
+6. Window focus behavior:
+   - Firefox: Window manager switches desktop and focuses
+   - Chrome/Brave: Focuses only if on current desktop
+7. Extension returns success to mediator
+8. Mediator returns success via D-Bus
+9. CLI reports: "Activated tab f.1.2"
 ```
 
 ## D-Bus Interface
@@ -241,39 +207,26 @@ Native messaging uses length-prefixed JSON:
 
 ## Directory Structure
 
-```mermaid
-graph TD
-    A[tabctl/] --> B[cmd/]
-    A --> C[internal/]
-    A --> D[pkg/]
-    A --> E[extensions/]
-    A --> F[scripts/]
-
-    B --> B1[tabctl/<br/>CLI entry point]
-    B --> B2[tabctl-mediator/<br/>Mediator entry point]
-
-    C --> C1[cli/<br/>Command implementations]
-    C --> C2[client/<br/>D-Bus client & browser manager]
-    C --> C3[dbus/<br/>D-Bus primitives]
-    C --> C4[mediator/<br/>Mediator core logic]
-    C --> C5[platform/<br/>OS-specific code]
-    C --> C6[utils/<br/>Shared utilities]
-
-    D --> D1[api/<br/>Public interfaces]
-    D --> D2[types/<br/>Shared types]
-
-    E --> E1[firefox/<br/>Firefox extension]
-    E --> E2[chrome/<br/>Chrome/Brave extension]
-
-    F --> F1[rofi-wmctrl.sh<br/>X11 integration]
-    F --> F2[rofi-hyprctl.sh<br/>Hyprland integration]
-
-    style A fill:#f9f,stroke:#333,stroke-width:3px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
-    style C fill:#bfb,stroke:#333,stroke-width:2px
-    style D fill:#fbf,stroke:#333,stroke-width:2px
-    style E fill:#ffb,stroke:#333,stroke-width:2px
-    style F fill:#bff,stroke:#333,stroke-width:2px
+```
+tabctl/
+├── cmd/
+│   ├── tabctl/              # CLI entry point
+│   └── tabctl-mediator/     # Mediator entry point
+├── internal/
+│   ├── cli/                 # Command implementations
+│   ├── client/               # D-Bus client & browser manager
+│   ├── dbus/                 # D-Bus primitives
+│   ├── mediator/             # Mediator core logic
+│   ├── platform/             # OS-specific code
+│   └── utils/                # Shared utilities
+├── pkg/
+│   ├── api/                  # Public interfaces
+│   └── types/                # Shared types
+├── extensions/
+│   ├── firefox/              # Firefox extension
+│   └── chrome/               # Chrome/Brave extension
+└── scripts/
+    └── rofi-wmctrl.sh        # X11 integration
 ```
 
 ## Error Handling

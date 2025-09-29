@@ -12,11 +12,10 @@ plugins:
   - jekyll-seo-tag
   - jekyll-sitemap
 
-# Mermaid diagram support
+# Markdown settings
 markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
-  input: GFM
 
 # Minima theme settings
 minima:
