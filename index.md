@@ -50,12 +50,12 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 
 Install the extension for your browser:
 
-- **Firefox**: [Install from Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tabctl1/)
-- **Chrome/Chromium**: [Install from Chrome Web Store](https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn)
+- **Firefox based**: [Install from Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tabctl1/)
+- **Chrome based**: [Install from Chrome Web Store](https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn)
 - **Brave**: Use the Chrome Web Store link above
 
 Or install manually from source:
-- Firefox: `extensions/firefox/tabctl-firefox-1.1.2.xpi`
+- Firefox/Zen: `extensions/firefox/`
 - Chrome/Brave: Load unpacked from `extensions/chrome/`
 
 ### Setup
