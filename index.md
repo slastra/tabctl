@@ -1,3 +1,8 @@
+---
+layout: home
+title: Home
+---
+
 # TabCtl
 
 Control your browser tabs from the command line.
@@ -5,9 +10,9 @@ Control your browser tabs from the command line.
 ![TabCtl in action](screenshots/list.webp)
 
 ## Quick Links
-- [Full Documentation](./README.md)
 - [GitHub Repository](https://github.com/slastra/tabctl)
-- [Privacy Policy](./PRIVACY-POLICY.md)
+- [Architecture](./ARCHITECTURE.html)
+- [Privacy Policy](./PRIVACY-POLICY.html)
 
 ## Usage
 
@@ -33,4 +38,4 @@ TabCtl includes scripts for [Rofi](https://github.com/davatorium/rofi), a window
 
 ![Installation](screenshots/install.webp)
 
-See the [full documentation](./README.md#installation) for detailed instructions.
+See the [README on GitHub](https://github.com/slastra/tabctl#installation) for detailed installation instructions.

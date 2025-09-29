@@ -1,0 +1,49 @@
+title: TabCtl
+description: Command-line browser tab controller with rofi integration
+author: Shaun Lastra
+email: shaun@lastra.us
+url: "https://slastra.github.io"
+baseurl: "/tabctl"
+github_username: slastra
+
+# Build settings
+theme: minima
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Minima theme settings
+minima:
+  skin: auto
+  social_links:
+    - platform: github
+      user_url: "https://github.com/slastra/tabctl"
+
+# Header pages
+header_pages:
+  - index.md
+  - ARCHITECTURE.md
+  - PRIVACY-POLICY.md
+
+# Exclude files from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/
+  - .git/
+  - .gitignore
+  - cmd/
+  - internal/
+  - scripts/
+  - extensions/
+  - packaging/
+  - "*.go"
+  - go.mod
+  - go.sum
+  - tabctl
+  - tabctl-mediator
+  - "*.tar.gz"
+  - "*.xpi"
+  - dbus-plan.md
+  - CLAUDE.md
