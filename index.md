@@ -28,9 +28,6 @@ TabCtl enables powerful command-line control of browser tabs across Firefox and 
 yay -S tabctl
 # or
 paru -S tabctl
-
-# Set up native messaging
-tabctl install
 ```
 
 #### From Source
