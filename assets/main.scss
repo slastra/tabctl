@@ -1,0 +1,25 @@
+---
+---
+
+@import "minima";
+
+// Add TabCtl logo to navbar
+.site-title::before {
+  content: "";
+  background-image: url("/tabctl/assets/images/tabctl-icon-128x128.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+// Optionally hide the text "TabCtl" and only show the icon
+.site-title {
+  font-size: 0; // Hide the text
+  &::before {
+    font-size: initial; // Reset font-size for the icon
+  }
+}
