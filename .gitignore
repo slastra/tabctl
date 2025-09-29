@@ -49,5 +49,5 @@ dbus-server-test
 *.pkg.tar.zst
 *.pkg.tar.xz
 
-# Firefox extension packages
-*.xpi
+# Firefox extension packages (exclude root level only)
+/*.xpi
