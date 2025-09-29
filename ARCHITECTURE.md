@@ -249,21 +249,30 @@ tabctl/
 - **Memory:** ~10MB per mediator process
 - **CPU:** Near zero when idle
 
-## Window Focus Magic
+## Window Focus Behavior
 
-The `activate` command achieves cross-desktop switching through browser APIs:
+The `activate` command's window focusing behavior varies by browser:
+
+### Firefox
+Firefox's `browser.windows.update()` API with `{focused: true}` triggers automatic desktop switching:
 
 ```javascript
-// Extension calls browser's window.update API
+// Firefox extension calls
 browser.windows.update(windowId, {focused: true})
 ```
 
-Modern window managers (KDE, GNOME, etc.) respond to this by:
+Modern window managers (KDE, GNOME, etc.) respond by:
 1. Switching to the virtual desktop containing the window
 2. Raising the window to the top
 3. Giving it keyboard focus
 
-This works without TabCtl needing to know about window managers!
+### Chrome/Chromium/Brave
+Chrome-based browsers have more limited window focus capabilities:
+- `chrome.windows.update()` focuses the window if on current desktop
+- Does not trigger automatic desktop/workspace switching
+- User must manually switch to the appropriate desktop first
+
+This difference is due to browser API implementations, not TabCtl limitations.
 
 ## Future Enhancements
 
