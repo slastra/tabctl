@@ -14,6 +14,19 @@ Control browser tabs from the command line using D-Bus IPC.
 
 ## Installation
 
+### Arch Linux (AUR)
+
+```bash
+yay -S tabctl
+# or
+paru -S tabctl
+```
+
+After installation, set up native messaging:
+```bash
+tabctl install
+```
+
 ### From Source
 
 1. **Build the binaries:**

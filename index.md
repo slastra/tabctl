@@ -21,17 +21,29 @@ TabCtl enables powerful command-line control of browser tabs across Firefox and 
 
 ### Installation
 
-TabCtl is available through multiple package managers:
+#### Arch Linux (AUR)
 
 ```bash
-# Arch Linux (AUR)
+# Install from AUR
 yay -S tabctl
+# or
+paru -S tabctl
 
-# From source
+# Set up native messaging
+tabctl install
+```
+
+#### From Source
+
+```bash
+# Clone and build
 git clone https://github.com/slastra/tabctl
 cd tabctl
 go build -o tabctl ./cmd/tabctl
 go build -o tabctl-mediator ./cmd/tabctl-mediator
+
+# Install native messaging
+./tabctl install
 ```
 
 ### Setup
