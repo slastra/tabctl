@@ -51,3 +51,4 @@ dbus-server-test
 
 # Firefox extension packages (exclude root level only)
 /*.xpi
+CLAUDE.md
