@@ -4,13 +4,13 @@ Control browser tabs from the command line using D-Bus IPC.
 
 ## Features
 
-- 🚀 **D-Bus Architecture** - Fast, reliable inter-process communication
-- 🌐 **Multi-Browser Support** - Firefox, Zen, Chrome, Brave work simultaneously
-- 📋 **Core Commands** - List, close, and activate tabs across browsers
-- 🖥️ **Desktop Switching** - Automatic window focus across virtual desktops
-- 🔧 **Rofi Integration** - Quick tab switching with rofi scripts
-- 📊 **Multiple Output Formats** - TSV, JSON, simple
-- 🧹 **Clean Architecture** - Minimal dependencies, production ready
+- **D-Bus Architecture** - Fast, reliable inter-process communication
+- **Multi-Browser Support** - Firefox, Zen, Chrome, Brave work simultaneously
+- **Core Commands** - List, close, and activate tabs across browsers
+- **Desktop Switching** - Automatic window focus across virtual desktops
+- **Rofi Integration** - Quick tab switching with rofi scripts
+- **Multiple Output Formats** - TSV, JSON, simple
+- **Clean Architecture** - Minimal dependencies, production ready
 
 ## Installation
 
