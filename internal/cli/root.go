@@ -47,4 +47,5 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(closeCmd)
 	rootCmd.AddCommand(activateCmd)
+	rootCmd.AddCommand(installCmd)
 }
