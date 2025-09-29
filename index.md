@@ -5,7 +5,7 @@ title: TabCtl
 
 **Command-line browser tab control with seamless desktop integration.**
 
-TabCtl enables powerful command-line control of browser tabs across Firefox and Chrome-based browsers. Built for developers and power users who prefer keyboard-driven workflows.
+TabCtl enables powerful command-line control of browser tabs across Firefox and Chrome-based browsers. Built for developers and power users who prefer keyboard-driven workflows. Currently, for Linux only.
 
 ![TabCtl in action](screenshots/list.webp)
 
@@ -41,8 +41,12 @@ git clone https://github.com/slastra/tabctl
 cd tabctl
 go build -o tabctl ./cmd/tabctl
 go build -o tabctl-mediator ./cmd/tabctl-mediator
+```
 
-# Install native messaging
+### Setup
+
+```bash
+# Install native messaging host
 ./tabctl install
 ```
 
@@ -57,13 +61,6 @@ Install the extension for your browser:
 Or install manually from source:
 - Firefox/Zen: `extensions/firefox/`
 - Chrome/Brave: Load unpacked from `extensions/chrome/`
-
-### Setup
-
-```bash
-# After installing the browser extension, run:
-tabctl install
-```
 
 ![Installation process](screenshots/install.webp)
 
