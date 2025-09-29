@@ -1,6 +1,6 @@
 ---
 layout: home
-title: TabCtl - CLI Browser Tab Control
+title: Quick Start
 ---
 
 **Command-line browser tab control with seamless desktop integration.**
