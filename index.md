@@ -11,7 +11,7 @@ TabCtl enables powerful command-line control of browser tabs across Firefox and 
 
 ## Features
 
-- **Universal Browser Support** - Works with Firefox, Chrome, Chromium, and Brave browsers
+- **Universal Browser Support** - Works with Firefox, Chrome, Zen, and Brave browsers
 - **D-Bus Architecture** - Secure local communication without network dependencies
 - **Desktop Integration** - Automatic window focus and workspace switching
 - **Rofi Integration** - Lightning-fast fuzzy search across all open tabs
@@ -107,4 +107,4 @@ TabCtl is open source software released under the MIT License. Contributions are
 
 ## Acknowledgments
 
-TabCtl was inspired by [BroTab](https://github.com/balta2ar/brotab), reimagined with a D-Bus architecture for improved performance and reliability.
+TabCtl was inspired by [BroTab](https://github.com/balta2ar/brotab), rewritten in Go with a D-Bus architecture and a Manifest v3 Chrome extension.
