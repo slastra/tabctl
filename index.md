@@ -1,6 +1,6 @@
 ---
-layout: home
-title: Quick Start
+layout: page
+title: Home
 ---
 
 **Command-line browser tab control with seamless desktop integration.**
