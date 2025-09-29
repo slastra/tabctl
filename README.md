@@ -189,4 +189,4 @@ MIT - See LICENSE file for details
 
 ## Acknowledgments
 
-Inspired by [BroTab](https://github.com/balta2ar/brotab), rewritten in Go with D-Bus architecture for better performance and reliability.
+Inspired by [BroTab](https://github.com/balta2ar/brotab), rewritten in Go with a D-Bus architecture and a Manifest v3 Chrome extension.
