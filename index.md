@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Home
+title: TabCtl
 ---
 
 **Command-line browser tab control with seamless desktop integration.**
