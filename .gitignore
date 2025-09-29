@@ -33,3 +33,21 @@ coverage.txt
 
 # Planning documents
 port-plan.md
+dbus-plan.md
+
+# Test binaries
+dbus-test
+dbus-server-test
+*-test
+
+# Archives
+*.tar.gz
+*.tar.xz
+*.zip
+
+# Arch Linux packages
+*.pkg.tar.zst
+*.pkg.tar.xz
+
+# Firefox extension packages
+*.xpi
