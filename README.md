@@ -1,21 +1,22 @@
 # TabCtl
 
-Control browser tabs from the command line.
+Control browser tabs from the command line using D-Bus IPC.
 
 ## Features
 
-- List, close, activate, and open tabs across multiple browsers
-- Works with Firefox, Chrome, Chromium, and Brave
-- Rofi integration for quick tab switching
-- Virtual desktop support with wmctrl
-- Multiple output formats (TSV, JSON, simple)
-- Automatic mediator cleanup when browser closes
+- 🚀 **D-Bus Architecture** - Fast, reliable inter-process communication
+- 🌐 **Multi-Browser Support** - Firefox, Zen, Chrome, Brave work simultaneously
+- 📋 **Core Commands** - List, close, and activate tabs across browsers
+- 🖥️ **Desktop Switching** - Automatic window focus across virtual desktops
+- 🔧 **Rofi Integration** - Quick tab switching with rofi scripts
+- 📊 **Multiple Output Formats** - TSV, JSON, simple
+- 🧹 **Clean Architecture** - Minimal dependencies, production ready
 
 ## Installation
 
-### Quick Start
+### From Source
 
-1. Build the binaries:
+1. **Build the binaries:**
 ```bash
 git clone https://github.com/slastra/tabctl.git
 cd tabctl
@@ -23,57 +24,52 @@ go build -o tabctl ./cmd/tabctl
 go build -o tabctl-mediator ./cmd/tabctl-mediator
 ```
 
-2. Install native messaging:
+2. **Install native messaging host:**
 ```bash
 ./tabctl install
 ```
 
-3. Load browser extension:
-   - Open `brave://extensions/` or `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select `extensions/chrome/` directory
+3. **Install browser extensions:**
 
-For Firefox:
-   - Open `about:debugging`
-   - Click "This Firefox"
-   - Click "Load Temporary Add-on"
-   - Select `extensions/firefox/manifest.json`
+**Firefox:**
+- Download `tabctl-firefox-1.1.0.xpi` from releases
+- Open Firefox → `about:addons`
+- Click gear icon → "Install Add-on From File..."
+- Select the XPI file
 
-## Commands
+**Chrome/Brave:**
+- Open `chrome://extensions/` or `brave://extensions/`
+- Enable "Developer mode"
+- Click "Load unpacked"
+- Select `extensions/chrome/` directory
 
-### Basic Usage
+4. **Restart browser** to activate native messaging
+
+## Usage
+
+### Basic Commands
 
 ```bash
-# List all tabs
+# List all tabs from all browsers
 tabctl list
 
-# Activate a tab (Firefox)
-tabctl activate f.1.2
+# List tabs from specific browser
+tabctl list --browser Firefox
+tabctl list --browser Brave
 
-# Activate a tab (Chrome/Brave)
-tabctl activate c.1874583011.1874583012
+# Activate a tab (switches desktop if needed!)
+tabctl activate f.1.2        # Firefox tab
+tabctl activate c.1234.5678  # Chrome/Brave tab
 
 # Close tabs
 tabctl close f.1.2 f.1.3
-
-# Open URLs in new tabs
-echo "https://example.com" | tabctl open
-
+echo "c.1234.5678" | tabctl close
 ```
 
-### Query and Filter
+### Tab ID Format
 
-```bash
-# Show active tabs
-tabctl active
-
-# Query tabs with filters
-tabctl query --active --current-window
-
-# List windows
-tabctl windows
-```
+- Firefox: `f.<window_id>.<tab_id>` (e.g., `f.1.2`)
+- Chrome/Brave: `c.<window_id>.<tab_id>` (e.g., `c.1874583011.1874583012`)
 
 ### Output Formats
 
@@ -93,111 +89,91 @@ tabctl list --no-headers
 
 ## Rofi Integration
 
-Included rofi scripts for quick tab switching:
+Quick tab switching with rofi (includes desktop switching):
 
-### For X11 with wmctrl:
 ```bash
-# Make script executable
-chmod +x scripts/rofi-wmctrl.sh
-
-# Run with rofi
+# For X11 (wmctrl)
 ./scripts/rofi-wmctrl.sh
-```
 
-### For Wayland with Hyprland:
-```bash
-# Make script executable
-chmod +x scripts/rofi-hyprctl.sh
-
-# Run with rofi
+# For Hyprland
 ./scripts/rofi-hyprctl.sh
 ```
 
-Both scripts will:
-- List all open tabs
-- Allow fuzzy searching
-- Switch to selected tab
-- Handle workspace/desktop switching automatically
-
-### Bind to a hotkey
-
-**i3/Sway:**
-```
-bindsym $mod+Tab exec ~/path/to/tabctl/scripts/rofi-wmctrl.sh
-```
-
-**Hyprland:**
-```
-bind = $mainMod, Tab, exec, ~/path/to/tabctl/scripts/rofi-hyprctl.sh
-```
+Add to your window manager keybindings for instant access.
 
 ## Architecture
 
-TabCtl uses native messaging to communicate with browser extensions:
-
 ```
-tabctl CLI → Unix Socket → tabctl-mediator → Native Messaging → Browser Extension
+Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl CLI
 ```
 
-The mediator runs on different ports for each browser:
-- 4625: Firefox (prefix: f.)
-- 4626: Chrome/Chromium (prefix: c.)
-- 4627: Brave (prefix: c.)
+### Components
 
-### Tab ID Format
-
-Tab IDs include a browser prefix and window/tab numbers:
-- Firefox: `f.1.2` (f.windowID.tabID) - uses simple sequential numbers
-- Chrome/Brave: `c.1874583011.1874583012` - uses large integer IDs
-
-## Configuration
-
-### Environment Variables
-
-- `TABCTL_TARGET`: Default mediator host (default: "localhost:4625")
-- `TABCTL_DEBUG`: Enable debug logging
-- `TABCTL_PORT`: Override mediator port
-
-## Dependencies
-
-### Required
-- Go 1.19+ (for building)
-- Browser extension loaded
-
-### Optional
-- `rofi` - For interactive tab switching
-- `wmctrl` or `xdotool` - For window management in rofi script
+- **tabctl** - Command-line interface
+- **tabctl-mediator** - Native messaging host with D-Bus server
+- **Browser Extensions** - Firefox (v1.1.0) and Chrome extensions
+- **D-Bus Services** - `dev.slastra.TabCtl.Firefox`, `dev.slastra.TabCtl.Brave`
 
 ## Troubleshooting
 
-### Browser doesn't detect mediator
-- Restart browser after running `tabctl install`
-- Check if mediator is registered: `ls ~/.mozilla/native-messaging-hosts/`
-- Reload extension after browser restart
+### Extension Not Connecting
 
-### Mediator processes accumulating
-- Fixed in latest version - mediators now auto-exit when browser closes
-- Manual cleanup: `pkill -f tabctl-mediator`
+1. Check extension is enabled in browser
+2. Verify native messaging host:
+   ```bash
+   ls ~/.mozilla/native-messaging-hosts/tabctl_mediator.json
+   ls ~/.config/*/NativeMessagingHosts/tabctl_mediator.json
+   ```
+3. Check mediator is running:
+   ```bash
+   ps aux | grep tabctl-mediator
+   ```
 
+### Commands Not Working
+
+1. Check D-Bus registration:
+   ```bash
+   dbus-send --session --print-reply --dest=org.freedesktop.DBus \
+     /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep TabCtl
+   ```
+
+2. Enable debug mode:
+   ```bash
+   TABCTL_DEBUG=1 tabctl list
+   ```
+
+3. Check logs:
+   ```bash
+   tail -f /tmp/tabctl-mediator.log
+   ```
 
 ## Building from Source
 
-```bash
-# Clone repository
-git clone https://github.com/slastra/tabctl.git
-cd tabctl
+### Requirements
 
-# Build both binaries
+- Go 1.19+
+- D-Bus session bus
+- Browser with native messaging support
+
+### Build
+
+```bash
+make build
+# or
 go build -o tabctl ./cmd/tabctl
 go build -o tabctl-mediator ./cmd/tabctl-mediator
+```
 
-# Run tests
+### Test
+
+```bash
 go test ./...
-
-# Install
-./tabctl install
 ```
 
 ## License
 
-MIT
+MIT - See LICENSE file for details
+
+## Acknowledgments
+
+Inspired by [BroTab](https://github.com/balta2ar/brotab), rewritten in Go with D-Bus architecture for better performance and reliability.

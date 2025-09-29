@@ -136,7 +136,7 @@ class FirefoxTabs extends BrowserTabs {
   list(queryInfo, onSuccess) {
     this._browser.tabs.query(queryInfo).then(
       onSuccess,
-      (error) => console.log(`Error listing tabs: ${error}`)
+      (error) => { /* Error listing tabs */ }
     );
   }
 
@@ -157,12 +157,12 @@ class FirefoxTabs extends BrowserTabs {
             onSuccess(tabs);
           });
         },
-        (error) => console.log(`Error executing queryTabs: ${error}`)
+        (error) => { /* Error querying tabs */ }
       );
     } else {
       this._browser.tabs.query(queryInfo).then(
         onSuccess,
-        (error) => console.log(`Error executing queryTabs: ${error}`)
+        (error) => { /* Error querying tabs */ }
       );
     }
   }
@@ -170,14 +170,14 @@ class FirefoxTabs extends BrowserTabs {
   close(tab_ids, onSuccess) {
     this._browser.tabs.remove(tab_ids).then(
       onSuccess,
-      (error) => console.log(`Error removing tab: ${error}`)
+      (error) => { /* Error removing tab */ }
     );
   }
 
   move(tabId, moveOptions, onSuccess) {
     this._browser.tabs.move(tabId, moveOptions).then(
       onSuccess,
-      (error) => console.log(`Error moving tab: ${error}`)
+      (error) => { /* Error moving tab */ }
     );
   }
 
@@ -185,7 +185,7 @@ class FirefoxTabs extends BrowserTabs {
     this._browser.tabs.update(tabId, options).then(
       onSuccess,
       (error) => {
-        console.log(`Error updating tab ${tabId}: ${error}`)
+        // Error updating tab
         onError(error)
       }
     );
@@ -195,12 +195,12 @@ class FirefoxTabs extends BrowserTabs {
     if (createOptions.windowId === 0) {
       this._browser.windows.create({ url: createOptions.url }).then(
         onSuccess,
-        (error) => console.log(`Error: ${error}`)
+        (error) => { /* Error in tab operation */ }
       );
     } else {
       this._browser.tabs.create(createOptions).then(
         onSuccess,
-        (error) => console.log(`Error: ${error}`)
+        (error) => { /* Error in tab operation */ }
       );
     }
   }
@@ -208,7 +208,7 @@ class FirefoxTabs extends BrowserTabs {
   getActive(onSuccess) {
     this._browser.tabs.query({active: true}).then(
       onSuccess,
-      (error) => console.log(`Error: ${error}`)
+      (error) => { /* Error in tab operation */ }
     );
   }
 
@@ -228,10 +228,10 @@ class FirefoxTabs extends BrowserTabs {
             };
             onSuccess(message);
           },
-          (error) => console.log(`Error: ${error}`)
+          (error) => { /* Error in tab operation */ }
         );
       },
-      (error) => console.log(`Error: ${error}`)
+      (error) => { /* Error in tab operation */ }
     );
   }
 
@@ -254,8 +254,8 @@ class FirefoxTabs extends BrowserTabs {
         
         if (focused) {
           this._browser.windows.update(tab.windowId, {focused: true}).then(
-            () => console.log(`[TabCtl] Window ${tab.windowId} focused`),
-            (error) => console.error(`[TabCtl] Error focusing window: ${error}`)
+            () => { /* Window focused */ },
+            (error) => { /* Error focusing window */ }
           );
         }
       },
@@ -512,7 +512,7 @@ function updateTabs(updates) {
       browserTabs.update(update.tab_id, update.properties,
         (tab) => { resolve(`f.${tab.windowId}.${tab.id}`) },
         (error) => {
-          console.error(`Could not update tab: ${error}, update=${JSON.stringify(update)}`)
+          // Could not update tab
           resolve()
         }
       );
@@ -636,7 +636,7 @@ function getWords(tab_id, match_regex, join_with) {
     
     browserTabs.runScript(tab_id, script, null,
       (words, _payload) => sendResponse(listOr(words, [])),
-      (error, _payload) => console.log(`getWords: tab_id=${tab_id}, could not run script (${script})`),
+      (error, _payload) => { /* Could not run script */ },
     );
   }
 }

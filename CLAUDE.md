@@ -1,44 +1,47 @@
 # TabCtl Project Context
 
 ## Overview
-TabCtl is a standalone Go implementation of a browser tab controller, inspired by BroTab but completely independent. It allows controlling browser tabs from the command line with excellent rofi integration.
+TabCtl is a standalone Go implementation of a browser tab controller that allows controlling browser tabs from the command line. It uses D-Bus for inter-process communication and supports Firefox and Chrome-based browsers.
 
-## Current Status
-- ✅ All core commands working (list, close, activate, open, query, etc.)
-- ✅ Browser extensions working for Firefox and Chrome/Brave
-- ✅ Automatic mediator cleanup when browser closes (EOF detection)
-- ✅ Browser-specific prefixes (f. for Firefox, c. for Chrome/Brave)
-- ✅ Socket conflict detection prevents duplicate mediators
-- ✅ Native messaging registration via `tabctl install` command
-- ✅ Repository published at https://github.com/slastra/tabctl
+## Current Status (v1.1.0)
+- ✅ **D-Bus Architecture** - Fully migrated from Unix sockets to D-Bus
+- ✅ **Core Commands Working** - list, close, activate
+- ✅ **Multi-Browser Support** - Firefox and Chrome/Brave work simultaneously
+- ✅ **Automatic Window Focus** - Browser APIs handle desktop switching
+- ✅ **Clean Logging** - Verbose logs removed, debug mode available
+- ✅ **Simplified Codebase** - ~600+ lines removed, cleaner architecture
+- ✅ **Production Ready** - Firefox extension packaged as XPI
 
 ## Architecture
 ```
-Browser Extension ← Native Messaging (stdio) → tabctl-mediator ← Unix Socket → tabctl CLI
+Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl CLI
 ```
 
+### D-Bus Service Names
+- `dev.slastra.TabCtl.Firefox` - Firefox mediator
+- `dev.slastra.TabCtl.Brave` - Brave/Chrome mediator
+
 ## Key Components
-- **tabctl**: CLI binary (uses Cobra framework)
-- **tabctl-mediator**: Native messaging host with Unix socket server
-- **extensions/**: Browser extensions for Firefox and Chrome/Brave
+- **tabctl**: CLI binary (Cobra framework)
+- **tabctl-mediator**: Native messaging host with D-Bus server
+- **extensions/**: Browser extensions (Firefox 1.1.0, Chrome)
+- **internal/dbus/**: D-Bus client/server implementation
+- **internal/client/**: BrowserManager for multi-browser support
 
 ## Working Commands
-- `tabctl list` - List all tabs
-- `tabctl close <tab_ids>` - Close tabs
-- `tabctl activate <tab_id>` - Activate tab (changes window title)
-- `tabctl query` - Filter tabs with conditions
-- `tabctl open` - Open URLs from stdin
-- `tabctl active` - Show active tabs
-- `tabctl windows` - List browser windows
+- `tabctl list` - List all tabs from all browsers
+- `tabctl list --browser Firefox` - List tabs from specific browser
+- `tabctl close <tab_ids>` - Close tabs by ID
+- `tabctl activate <tab_id>` - Switch to tab (with desktop switching!)
 
-## Recent Improvements
-- Mediator auto-exits when browser closes (EOF detection on stdin)
-- Socket conflict detection prevents multiple mediators on same port
-- Firefox extension handles reconnection gracefully
-- Browser-specific tab ID prefixes (f. for Firefox, c. for Chrome/Brave)
-- Fixed activate command by correcting prefix handling
-- Removed unnecessary timeout delays in mediator shutdown
-- Simplified architecture: removed wmctrl dependency from core tabctl
+## Recent Major Changes
+- **Phase 5 Completed**: Removed all Unix socket code
+- **Refactoring Done**:
+  - RemoteAPI → BrowserAPI
+  - ParallelClient → BrowserManager
+  - Removed unused: cache, editor, search, config cruft
+- **Logging Cleaned**: Only errors shown, debug with TABCTL_DEBUG=1
+- **Firefox Extension**: v1.1.0 packaged as XPI
 
 ## Installation Steps
 1. Build: `go build -o tabctl ./cmd/tabctl && go build -o tabctl-mediator ./cmd/tabctl-mediator`
