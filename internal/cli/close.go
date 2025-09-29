@@ -34,11 +34,12 @@ func runCloseTabs(tabIDs []string) error {
 		return nil
 	}
 
-	// Create parallel client
-	pc := client.NewParallelClient(globalHost)
+	// Create browser manager
+	bm := client.NewBrowserManager(targetBrowser)
+	defer bm.Close()
 
 	// Close tabs
-	if err := pc.CloseTabsParallel(tabIDs); err != nil {
+	if err := bm.CloseTabs(tabIDs); err != nil {
 		return fmt.Errorf("failed to close tabs: %w", err)
 	}
 

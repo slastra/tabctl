@@ -2,7 +2,8 @@
   "description": "Control your browser's tabs from command line with tabctl",
   "manifest_version": 2,
   "name": "TabCtl",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "homepage_url": "https://github.com/slastra/tabctl",
   "background": {
     "scripts": ["background.js"]
   },
@@ -11,7 +12,7 @@
     "48": "tabctl-icon-48x48.png",
     "16": "tabctl-icon-16x16.png"
   },
-  "permissions": ["nativeMessaging", "tabs", "activeTab", "<all_urls>"],
+  "permissions": ["nativeMessaging", "tabs"],
   "applications": {
     "gecko": {
       "id": "tabctl@slastra.github.io",

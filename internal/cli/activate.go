@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
-	"github.com/tabctl/tabctl/internal/utils"
-	"github.com/tabctl/tabctl/pkg/api"
 )
 
 var (
@@ -29,31 +27,12 @@ func init() {
 }
 
 func runActivateTab(tabID string, focused bool) error {
-	// Parse tab ID to get prefix
-	prefix, _, _, err := utils.ParseTabID(tabID)
-	if err != nil {
-		return fmt.Errorf("invalid tab ID: %w", err)
-	}
-
-	// Find the appropriate client
-	pc := client.NewParallelClient(globalHost)
-	clients := pc.GetClients()
-
-	var targetClient api.Client
-	prefixWithDot := prefix + "."
-	for _, c := range clients {
-		if c.GetPrefix() == prefixWithDot {
-			targetClient = c
-			break
-		}
-	}
-
-	if targetClient == nil {
-		return fmt.Errorf("no mediator found for prefix %s", prefix)
-	}
+	// Create browser manager
+	bm := client.NewBrowserManager(targetBrowser)
+	defer bm.Close()
 
 	// Activate the tab
-	if err := targetClient.ActivateTab(tabID, focused); err != nil {
+	if err := bm.ActivateTab(tabID); err != nil {
 		return fmt.Errorf("failed to activate tab: %w", err)
 	}
 

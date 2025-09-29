@@ -1,53 +1,70 @@
 package mediator
 
 import (
-	"github.com/tabctl/tabctl/internal/config"
+	"os"
+	"time"
+
+	"github.com/tabctl/tabctl/internal/dbus"
 )
 
-// Mediator coordinates communication between the browser extension and CLI.
-// It runs as a native messaging host, receiving commands via Unix socket
-// from the CLI and forwarding them to the browser extension via stdio.
+// Mediator coordinates communication between the browser extension and CLI via D-Bus.
 type Mediator struct {
-	config     *config.MediatorConfig
-	unixServer *UnixServer
-	remoteAPI  *RemoteAPI
+	browser    string
+	browserAPI *BrowserAPI
+	dbusServer *dbus.Server
 }
 
-// NewMediator creates a new mediator instance.
-// It sets up the stdio transport for browser communication
-// and a Unix socket server for CLI connections.
-func NewMediator(cfg *config.MediatorConfig) (*Mediator, error) {
+// NewMediator creates a new D-Bus-only mediator instance.
+func NewMediator(browser string) (*Mediator, error) {
 	// Create stdio transport for native messaging
 	transport := NewDefaultTransport()
 
-	// Create remote API handler
-	remoteAPI := NewRemoteAPI(transport)
+	// Create browser API handler
+	browserAPI := NewBrowserAPI(transport, browser)
 
-	// Create Unix socket server for CLI connections
-	unixServer, err := NewUnixServer(cfg, remoteAPI)
+	// Create D-Bus handler adapter
+	dbusHandler := NewDBusHandler(browserAPI)
+
+	// Create D-Bus server
+	dbusServer, err := dbus.NewServer(browser, dbusHandler)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Mediator{
-		config:     cfg,
-		unixServer: unixServer,
-		remoteAPI:  remoteAPI,
+		browser:    browser,
+		browserAPI: browserAPI,
+		dbusServer: dbusServer,
 	}, nil
 }
 
-// Run starts the mediator's Unix socket server.
-// The mediator will automatically exit when the browser closes stdin
-// (detected in RemoteAPI.sendCommand).
+// Run starts the D-Bus server and waits for browser disconnection.
 func (m *Mediator) Run() error {
-	return m.unixServer.Start()
-}
-
-// Shutdown gracefully shuts down the mediator and cleans up resources
-func (m *Mediator) Shutdown() error {
-	if m.unixServer != nil {
-		return m.unixServer.Shutdown()
+	// Start D-Bus server
+	if err := m.dbusServer.Start(); err != nil {
+		return err
 	}
+
+	// Mediator is running
+
+	// Keep running until interrupted
+	// The mediator will exit when browser closes stdin
+	for {
+		time.Sleep(1 * time.Second)
+		// Check if stdin is still open
+		if _, err := os.Stdin.Stat(); err != nil {
+			// Browser disconnected, shutting down
+			break
+		}
+	}
+
 	return nil
 }
 
+// Shutdown gracefully shuts down the mediator.
+func (m *Mediator) Shutdown() error {
+	if m.dbusServer != nil {
+		return m.dbusServer.Stop()
+	}
+	return nil
+}

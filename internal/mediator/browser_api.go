@@ -5,27 +5,26 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/errors"
 )
 
-// RemoteAPI handles communication with the browser extension
-type RemoteAPI struct {
+// BrowserAPI handles communication with the browser extension
+type BrowserAPI struct {
 	transport Transport
 	browser   string
 }
 
-// NewRemoteAPI creates a new remote API
-func NewRemoteAPI(transport Transport) *RemoteAPI {
-	return &RemoteAPI{
+// NewBrowserAPI creates a new browser API with the specified browser name
+func NewBrowserAPI(transport Transport, browser string) *BrowserAPI {
+	return &BrowserAPI{
 		transport: transport,
-		browser:   config.GetBrowserName(),
+		browser:   browser,
 	}
 }
 
 // sendCommand sends a command to the browser and returns the response.
 // If the browser has disconnected (stdin closed), it exits the process.
-func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
+func (r *BrowserAPI) sendCommand(cmd *Command) (interface{}, error) {
 	// Sending command to browser
 	if err := r.transport.Send(cmd); err != nil {
 		// Check if stdin/stdout is closed (browser disconnected)
@@ -58,7 +57,7 @@ func (r *RemoteAPI) sendCommand(cmd *Command) (interface{}, error) {
 }
 
 // isConnectionClosed checks if an error indicates the browser connection is closed
-func (r *RemoteAPI) isConnectionClosed(err error) bool {
+func (r *BrowserAPI) isConnectionClosed(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -69,7 +68,7 @@ func (r *RemoteAPI) isConnectionClosed(err error) bool {
 }
 
 // ListTabs returns a list of all tabs
-func (r *RemoteAPI) ListTabs() ([]string, error) {
+func (r *BrowserAPI) ListTabs() ([]string, error) {
 	cmd := NewCommand(CmdListTabs, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
@@ -99,7 +98,7 @@ func (r *RemoteAPI) ListTabs() ([]string, error) {
 }
 
 // QueryTabs queries tabs with the given criteria
-func (r *RemoteAPI) QueryTabs(queryInfo string) ([]string, error) {
+func (r *BrowserAPI) QueryTabs(queryInfo string) ([]string, error) {
 	cmd := NewCommand(CmdQueryTabs, map[string]interface{}{
 		"query_info": queryInfo,
 	})
@@ -124,7 +123,7 @@ func (r *RemoteAPI) QueryTabs(queryInfo string) ([]string, error) {
 }
 
 // MoveTabs moves tabs according to the given triplets
-func (r *RemoteAPI) MoveTabs(moveTriplets string) (string, error) {
+func (r *BrowserAPI) MoveTabs(moveTriplets string) (string, error) {
 	cmd := NewCommand(CmdMoveTabs, map[string]interface{}{
 		"move_triplets": moveTriplets,
 	})
@@ -142,7 +141,7 @@ func (r *RemoteAPI) MoveTabs(moveTriplets string) (string, error) {
 }
 
 // OpenURLs opens the given URLs
-func (r *RemoteAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
+func (r *BrowserAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
 	args := map[string]interface{}{
 		"urls": urls,
 	}
@@ -171,7 +170,7 @@ func (r *RemoteAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
 }
 
 // UpdateTabs updates tabs with the given properties
-func (r *RemoteAPI) UpdateTabs(updates []map[string]interface{}) ([]string, error) {
+func (r *BrowserAPI) UpdateTabs(updates []map[string]interface{}) ([]string, error) {
 	cmd := NewCommand(CmdUpdateTabs, map[string]interface{}{
 		"updates": updates,
 	})
@@ -196,7 +195,7 @@ func (r *RemoteAPI) UpdateTabs(updates []map[string]interface{}) ([]string, erro
 }
 
 // CloseTabs closes the specified tabs
-func (r *RemoteAPI) CloseTabs(tabIDs string) (string, error) {
+func (r *BrowserAPI) CloseTabs(tabIDs string) (string, error) {
 	ids := strings.Split(tabIDs, ",")
 	cmd := NewCommand(CmdCloseTabs, map[string]interface{}{
 		"tab_ids": ids,
@@ -211,7 +210,7 @@ func (r *RemoteAPI) CloseTabs(tabIDs string) (string, error) {
 }
 
 // NewTab opens a new tab with a search query
-func (r *RemoteAPI) NewTab(query string) (string, error) {
+func (r *BrowserAPI) NewTab(query string) (string, error) {
 	cmd := NewCommand(CmdNewTab, map[string]interface{}{
 		"url": query,
 	})
@@ -229,7 +228,7 @@ func (r *RemoteAPI) NewTab(query string) (string, error) {
 }
 
 // ActivateTab activates the specified tab
-func (r *RemoteAPI) ActivateTab(tabID int, focused bool) error {
+func (r *BrowserAPI) ActivateTab(tabID int, focused bool) error {
 	cmd := NewCommand(CmdActivateTab, map[string]interface{}{
 		"tab_id":  tabID,
 		"focused": focused,
@@ -244,7 +243,7 @@ func (r *RemoteAPI) ActivateTab(tabID int, focused bool) error {
 }
 
 // GetActiveTabs returns the active tabs
-func (r *RemoteAPI) GetActiveTabs() (string, error) {
+func (r *BrowserAPI) GetActiveTabs() (string, error) {
 	cmd := NewCommand(CmdGetActiveTabs, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
@@ -259,7 +258,7 @@ func (r *RemoteAPI) GetActiveTabs() (string, error) {
 }
 
 // GetScreenshot captures a screenshot
-func (r *RemoteAPI) GetScreenshot() (string, error) {
+func (r *BrowserAPI) GetScreenshot() (string, error) {
 	cmd := NewCommand(CmdGetScreenshot, nil)
 	result, err := r.sendCommand(cmd)
 	if err != nil {
@@ -274,7 +273,7 @@ func (r *RemoteAPI) GetScreenshot() (string, error) {
 }
 
 // GetWords extracts words from tabs
-func (r *RemoteAPI) GetWords(tabID *int, matchRegex, joinWith string) ([]string, error) {
+func (r *BrowserAPI) GetWords(tabID *int, matchRegex, joinWith string) ([]string, error) {
 	args := map[string]interface{}{
 		"matchRegex": matchRegex,
 		"joinWith":   joinWith,
@@ -305,7 +304,7 @@ func (r *RemoteAPI) GetWords(tabID *int, matchRegex, joinWith string) ([]string,
 
 // GetText extracts text content from tabs.
 // The delimiter regex splits the text and replaceWith joins it back.
-func (r *RemoteAPI) GetText(delimiterRegex, replaceWith string) ([]string, error) {
+func (r *BrowserAPI) GetText(delimiterRegex, replaceWith string) ([]string, error) {
 	cmd := NewCommand(CmdGetText, map[string]interface{}{
 		"delimiterRegex": delimiterRegex,
 		"replaceWith":    replaceWith,
@@ -320,7 +319,7 @@ func (r *RemoteAPI) GetText(delimiterRegex, replaceWith string) ([]string, error
 }
 
 // GetHTML extracts HTML from tabs
-func (r *RemoteAPI) GetHTML(delimiterRegex, replaceWith string) ([]string, error) {
+func (r *BrowserAPI) GetHTML(delimiterRegex, replaceWith string) ([]string, error) {
 	cmd := NewCommand(CmdGetHTML, map[string]interface{}{
 		"delimiterRegex": delimiterRegex,
 		"replaceWith":    replaceWith,
@@ -346,13 +345,13 @@ func (r *RemoteAPI) GetHTML(delimiterRegex, replaceWith string) ([]string, error
 }
 
 // GetPID returns the mediator process ID
-func (r *RemoteAPI) GetPID() int {
+func (r *BrowserAPI) GetPID() int {
 	return os.Getpid()
 }
 
 // GetBrowser returns the detected browser name.
 // It queries the extension if not already known.
-func (r *RemoteAPI) GetBrowser() string {
+func (r *BrowserAPI) GetBrowser() string {
 	if r.browser == "" {
 		// Query browser from extension
 		cmd := NewCommand(CmdGetBrowser, nil)
@@ -372,7 +371,7 @@ func (r *RemoteAPI) GetBrowser() string {
 
 // parseStringArray converts an interface{} result to []string.
 // Used to reduce code duplication in response parsing.
-func (r *RemoteAPI) parseStringArray(result interface{}, operation string) ([]string, error) {
+func (r *BrowserAPI) parseStringArray(result interface{}, operation string) ([]string, error) {
 	if items, ok := result.([]interface{}); ok {
 		var lines []string
 		for _, item := range items {
