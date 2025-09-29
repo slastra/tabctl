@@ -46,15 +46,23 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 ./tabctl install
 ```
 
+### Browser Extensions
+
+Install the extension for your browser:
+
+- **Firefox**: [Install from Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tabctl1/)
+- **Chrome/Chromium**: [Install from Chrome Web Store](https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn)
+- **Brave**: Use the Chrome Web Store link above
+
+Or install manually from source:
+- Firefox: `extensions/firefox/tabctl-firefox-1.1.2.xpi`
+- Chrome/Brave: Load unpacked from `extensions/chrome/`
+
 ### Setup
 
 ```bash
-# Install native messaging host
+# After installing the browser extension, run:
 tabctl install
-
-# Load the browser extension
-# Firefox: Install from extensions/firefox/tabctl-firefox-1.1.2.xpi
-# Chrome/Brave: Load unpacked from extensions/chrome/
 ```
 
 ![Installation process](screenshots/install.webp)
