@@ -47,6 +47,8 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 ./tabctl install
 ```
 
+![Installation process](screenshots/install.webp)
+
 ### Browser Extensions
 
 Install the extension for your browser:
@@ -58,8 +60,6 @@ Install the extension for your browser:
 Or install manually from source:
 - Firefox/Zen: `extensions/firefox/`
 - Chrome/Brave: Load unpacked from `extensions/chrome/`
-
-![Installation process](screenshots/install.webp)
 
 ### Basic Usage
 
