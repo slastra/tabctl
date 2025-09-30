@@ -2,22 +2,22 @@ package mediator
 
 import (
 	"os"
-	"time"
 
 	"github.com/tabctl/tabctl/internal/dbus"
 )
 
 // Mediator coordinates communication between the browser extension and CLI via D-Bus.
 type Mediator struct {
-	browser    string
-	browserAPI *BrowserAPI
-	dbusServer *dbus.Server
+	browser       string
+	browserAPI    *BrowserAPI
+	dbusServer    *dbus.Server
+	transport     *StdTransport
 }
 
-// NewMediator creates a new D-Bus-only mediator instance.
+// NewMediator creates a new mediator with automatic disconnection detection.
 func NewMediator(browser string) (*Mediator, error) {
-	// Create stdio transport for native messaging
-	transport := NewDefaultTransport()
+	// Create transport with automatic browser disconnection detection
+	transport := NewStdTransport(os.Stdin, os.Stdout)
 
 	// Create browser API handler
 	browserAPI := NewBrowserAPI(transport, browser)
@@ -35,30 +35,26 @@ func NewMediator(browser string) (*Mediator, error) {
 		browser:    browser,
 		browserAPI: browserAPI,
 		dbusServer: dbusServer,
+		transport:  transport,
 	}, nil
 }
 
-// Run starts the D-Bus server and waits for browser disconnection.
+// Run starts the D-Bus server and keeps running until the browser disconnects.
 func (m *Mediator) Run() error {
 	// Start D-Bus server
 	if err := m.dbusServer.Start(); err != nil {
 		return err
 	}
 
-	// Mediator is running
+	// Monitor for browser disconnection (non-polling, immediate detection)
+	go func() {
+		<-m.transport.GetErrorChannel()
+		// Browser disconnected, exit cleanly
+		os.Exit(0)
+	}()
 
-	// Keep running until interrupted
-	// The mediator will exit when browser closes stdin
-	for {
-		time.Sleep(1 * time.Second)
-		// Check if stdin is still open
-		if _, err := os.Stdin.Stat(); err != nil {
-			// Browser disconnected, shutting down
-			break
-		}
-	}
-
-	return nil
+	// Keep the main goroutine alive
+	select {}
 }
 
 // Shutdown gracefully shuts down the mediator.

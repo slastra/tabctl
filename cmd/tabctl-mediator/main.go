@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/tabctl/tabctl/internal/mediator"
 )
@@ -19,25 +21,21 @@ func main() {
 	// Detect browser from arguments passed by native messaging
 	browser := detectBrowser()
 
-	// Setup logging
-	if logFile == "" && !isTerminal(os.Stdin.Fd()) {
-		// Default to file logging when in native messaging mode
-		logFile = "/tmp/tabctl-mediator.log"
+	// Always log to file for debugging browser lifecycle
+	if logFile == "" {
+		// Use timestamp in filename to track different sessions
+		logFile = fmt.Sprintf("/tmp/tabctl-mediator-%d.log", os.Getpid())
 	}
 
-	if logFile != "" {
-		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			os.Exit(1)
-		}
-		defer file.Close()
-		log.SetOutput(file)
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		os.Exit(1)
 	}
+	defer file.Close()
+	log.SetOutput(file)
 
-	// Only log startup in debug mode
-	if os.Getenv("TABCTL_DEBUG") != "" {
-		log.Printf("Starting mediator for %s (pid=%d)", browser, os.Getpid())
-	}
+	// Always log startup and PID for debugging
+	log.Printf("Starting mediator for %s (pid=%d)", browser, os.Getpid())
 
 	// Create mediator
 	m, err := mediator.NewMediator(browser)
@@ -45,33 +43,44 @@ func main() {
 		log.Fatalf("Failed to create mediator: %v", err)
 	}
 
-	// Setup signal handling
+	// Setup signal handling - catch ALL signals for debugging
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGPIPE)
+
+	log.Printf("Signal handlers registered at %s", time.Now().Format("15:04:05.000"))
 
 	// Run mediator in goroutine
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- m.Run()
+		log.Printf("Starting mediator.Run() at %s", time.Now().Format("15:04:05.000"))
+		err := m.Run()
+		log.Printf("mediator.Run() returned: err=%v at %s", err, time.Now().Format("15:04:05.000"))
+		errChan <- err
 	}()
 
 	// Wait for signal or error
+	log.Printf("Main thread waiting for signals or errors...")
 	select {
-	case <-sigChan:
+	case sig := <-sigChan:
 		// Signal received, initiate shutdown
+		log.Printf("SIGNAL RECEIVED: %v at %s", sig, time.Now().Format("15:04:05.000"))
 	case err := <-errChan:
 		if err != nil {
-			log.Printf("Mediator error: %v", err)
+			log.Printf("Mediator error: %v at %s", err, time.Now().Format("15:04:05.000"))
+		} else {
+			log.Printf("Mediator exited normally at %s", time.Now().Format("15:04:05.000"))
 		}
 	}
 
 	// Shutdown
+	log.Printf("Beginning shutdown sequence at %s", time.Now().Format("15:04:05.000"))
 	if err := m.Shutdown(); err != nil {
 		// Only log actual errors during shutdown
 		if !strings.Contains(err.Error(), "use of closed") {
-			log.Printf("Shutdown error: %v", err)
+			log.Printf("Shutdown error: %v at %s", err, time.Now().Format("15:04:05.000"))
 		}
 	}
+	log.Printf("Shutdown complete, exiting at %s", time.Now().Format("15:04:05.000"))
 }
 
 func detectBrowser() string {

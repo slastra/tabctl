@@ -23,25 +23,14 @@ func NewBrowserAPI(transport Transport, browser string) *BrowserAPI {
 }
 
 // sendCommand sends a command to the browser and returns the response.
-// If the browser has disconnected (stdin closed), it exits the process.
 func (r *BrowserAPI) sendCommand(cmd *Command) (interface{}, error) {
 	// Sending command to browser
 	if err := r.transport.Send(cmd); err != nil {
-		// Check if stdin/stdout is closed (browser disconnected)
-		if r.isConnectionClosed(err) {
-			// Browser connection closed during send
-			os.Exit(0) // Clean exit when browser disconnects
-		}
 		return nil, err
 	}
 
 	response, err := r.transport.Recv()
 	if err != nil {
-		// Check if stdin is closed (browser disconnected)
-		if r.isConnectionClosed(err) {
-			// Browser connection closed during recv
-			os.Exit(0) // Clean exit when browser disconnects
-		}
 		return nil, err
 	}
 
@@ -56,16 +45,6 @@ func (r *BrowserAPI) sendCommand(cmd *Command) (interface{}, error) {
 	return result, nil
 }
 
-// isConnectionClosed checks if an error indicates the browser connection is closed
-func (r *BrowserAPI) isConnectionClosed(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "connection closed") ||
-		strings.Contains(errStr, "broken pipe") ||
-		strings.Contains(errStr, "EOF")
-}
 
 // ListTabs returns a list of all tabs
 func (r *BrowserAPI) ListTabs() ([]string, error) {

@@ -1,7 +1,3 @@
-/*
-On startup, connect to the "tabctl_mediator" app.
-*/
-
 const GET_WORDS_SCRIPT = '[...new Set(document.documentElement.innerText.match(#match_regex#))].sort().join(#join_with#);';
 const GET_TEXT_SCRIPT = 'document.documentElement.innerText.replace(#delimiter_regex#, #replace_with#);';
 const GET_HTML_SCRIPT = 'document.documentElement.innerHTML.replace(#delimiter_regex#, #replace_with#);';
@@ -11,30 +7,18 @@ let port = undefined;
 let browserTabs = undefined;
 const NATIVE_APP_NAME = 'tabctl_mediator';
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
 /**
  * Send a standardized success response to the mediator
  */
 function sendResponse(data) {
-  
-
-  // Debug: Log the actual data being sent
-  if (Array.isArray(data)) {
-    
-    
+  // Ensure connection exists before sending
+  if (!port) {
+    connect();
   }
 
   if (port) {
-    const message = {result: data};
-    
-    
+    const message = { result: data };
     port.postMessage(message);
-    
-  } else {
-    
   }
 }
 
@@ -43,7 +27,7 @@ function sendResponse(data) {
  */
 function sendError(message) {
   if (port) {
-    port.postMessage({error: message});
+    port.postMessage({ error: message });
   }
 }
 
@@ -62,36 +46,10 @@ function parseTabId(fullTabId) {
  * Format a tab object into TSV format with all fields
  */
 function formatTabToTSV(tab) {
-  // Use actual tab character instead of \t in template literal for service worker
   const TAB = '\t';
-  const formatted = `c.${tab.windowId}.${tab.id}${TAB}${tab.title}${TAB}${tab.url}${TAB}${tab.index}${TAB}${tab.active}${TAB}${tab.pinned}`;
-
-  // Debug: log the formatted string and check for tabs
-  
-  
-  
-  
-  
-
-  return formatted;
+  return `c.${tab.windowId}.${tab.id}${TAB}${tab.title}${TAB}${tab.url}${TAB}${tab.index}${TAB}${tab.active}${TAB}${tab.pinned}`;
 }
 
-/**
- * Validate required command arguments
- */
-function validateArgs(command, requiredFields) {
-  if (!command || !command.args) {
-    return 'Missing command arguments';
-  }
-
-  for (const field of requiredFields) {
-    if (command.args[field] === undefined || command.args[field] === null) {
-      return `Missing required argument: ${field}`;
-    }
-  }
-
-  return null;
-}
 
 // Chrome V3 implementation - using chrome APIs directly since we only support Chrome for V3
 class ChromeTabs {
@@ -104,20 +62,15 @@ class ChromeTabs {
   }
 
   list(queryInfo, onSuccess) {
-    
     this._browser.tabs.query(queryInfo, (tabs) => {
-      
-      if (tabs && tabs.length > 0) {
-        
-      }
       onSuccess(tabs || []);
     });
   }
 
   activate(tab_id, focused) {
-    this._browser.tabs.update(tab_id, {'active': true});
-    this._browser.tabs.get(tab_id, function(tab) {
-      chrome.windows.update(tab.windowId, {focused: focused});
+    this._browser.tabs.update(tab_id, { 'active': true });
+    this._browser.tabs.get(tab_id, function (tab) {
+      chrome.windows.update(tab.windowId, { focused: focused });
     });
   }
 
@@ -128,7 +81,7 @@ class ChromeTabs {
       this._browser.tabs.query(queryInfo, tabs => {
         Promise.all(tabs.map(tab => {
           return new Promise(resolve => {
-            this._browser.windows.get(tab.windowId, {populate: false}, window => {
+            this._browser.windows.get(tab.windowId, { populate: false }, window => {
               resolve(window.focused === keepFocused ? tab : null);
             });
           });
@@ -154,7 +107,6 @@ class ChromeTabs {
     this._browser.tabs.update(tabId, options, tab => {
       if (this._browser.runtime.lastError) {
         let error = this._browser.runtime.lastError.message;
-        console.error(`Could not update tab: ${error}, tabId=${tabId}, options=${JSON.stringify(options)}`)
         onError(error)
       } else {
         onSuccess(tab)
@@ -171,7 +123,7 @@ class ChromeTabs {
   }
 
   getActive(onSuccess) {
-    this._browser.tabs.query({active: true}, onSuccess);
+    this._browser.tabs.query({ active: true }, onSuccess);
   }
 
   getActiveScreenshot(onSuccess) {
@@ -180,7 +132,7 @@ class ChromeTabs {
       let tab = tabs[0];
       let windowId = tab.windowId;
       let tabId = tab.id;
-      this._browser.tabs.captureVisibleTab(windowId, { format: 'png' }, function(data) {
+      this._browser.tabs.captureVisibleTab(windowId, { format: 'png' }, function (data) {
         const message = {
           tab: tabId,
           window: windowId,
@@ -193,16 +145,12 @@ class ChromeTabs {
 
   async runScript(tab_id, script, payload, onSuccess, onError) {
     try {
-      // For V3, we need to inject a function, not arbitrary code
-      // We'll create a wrapper function that executes the script
       const results = await this._browser.scripting.executeScript({
         target: { tabId: tab_id },
         func: (scriptCode) => {
           try {
-            // Execute the script in the page context
             return eval(scriptCode);
           } catch (e) {
-            
             return null;
           }
         },
@@ -212,31 +160,41 @@ class ChromeTabs {
       const result = results && results[0] ? results[0].result : null;
       onSuccess(result ? [result] : [], payload);
     } catch (error) {
-      
       onError(error, payload);
     }
   }
 
   getBrowserName() {
-      return "chrome/chromium";
+    return "chrome/chromium";
   }
 }
 
+// Initialize browser tabs handler immediately
+browserTabs = new ChromeTabs();
 
-reconnect();
+// Establish connection when service worker starts
+function connect() {
+  if (port) {
+    return; // Already connected
+  }
 
-function reconnect() {
-  
   port = chrome.runtime.connectNative(NATIVE_APP_NAME);
-  
-  browserTabs = new ChromeTabs();
-
-  // Set up port listeners
   port.onMessage.addListener(handleMessage);
   port.onDisconnect.addListener(handleDisconnect);
 }
 
-// see https://stackoverflow.com/a/15479354/258421
+// Connect on browser startup
+chrome.runtime.onStartup.addListener(() => {
+  connect();
+});
+
+// Connect on install/update
+chrome.runtime.onInstalled.addListener(() => {
+  connect();
+});
+
+// Connect immediately when service worker starts
+connect();
 
 function compareWindowIdTabId(tabA, tabB) {
   if (tabA.windowId != tabB.windowId) {
@@ -246,7 +204,6 @@ function compareWindowIdTabId(tabA, tabB) {
 }
 
 function listTabsOnSuccess(tabs) {
-  
   try {
     if (!tabs || !Array.isArray(tabs)) {
       sendError('Invalid tabs data received');
@@ -256,17 +213,8 @@ function listTabsOnSuccess(tabs) {
     // Make sure tabs are sorted by their index within a window
     tabs.sort(compareWindowIdTabId);
     const lines = tabs.map(tab => formatTabToTSV(tab));
-
-    // Debug: Check the lines array
-    
-    lines.forEach((line, i) => {
-      
-      
-    });
-
     sendResponse(lines);
   } catch (error) {
-    
     sendError('Failed to process tabs list');
   }
 }
@@ -278,7 +226,6 @@ function listTabs() {
 function queryTabsOnSuccess(tabs) {
   try {
     if (!tabs || !Array.isArray(tabs)) {
-      
       sendResponse([]);
       return;
     }
@@ -287,13 +234,11 @@ function queryTabsOnSuccess(tabs) {
     const lines = tabs.map(tab => formatTabToTSV(tab));
     sendResponse(lines);
   } catch (error) {
-    
     sendError('Failed to process query results');
   }
 }
 
 function queryTabsOnFailure(error) {
-  
   sendResponse([]);
 }
 
@@ -302,11 +247,13 @@ function queryTabs(query_info) {
     let query = atob(query_info)
     query = JSON.parse(query)
 
-    integerKeys = {'windowId': null, 'index': null};
-    booleanKeys = {'active': null, 'pinned': null, 'audible': null, 'muted': null, 'highlighted': null,
-      'discarded': null, 'autoDiscardable': null, 'currentWindow': null, 'lastFocusedWindow': null, 'windowFocused': null};
+    integerKeys = { 'windowId': null, 'index': null };
+    booleanKeys = {
+      'active': null, 'pinned': null, 'audible': null, 'muted': null, 'highlighted': null,
+      'discarded': null, 'autoDiscardable': null, 'currentWindow': null, 'lastFocusedWindow': null, 'windowFocused': null
+    };
 
-    query = Object.entries(query).reduce((o, [k,v]) => {
+    query = Object.entries(query).reduce((o, [k, v]) => {
       if (booleanKeys.hasOwnProperty(k) && typeof v != 'boolean') {
         if (v.toLowerCase() == 'true')
           o[k] = true;
@@ -324,7 +271,7 @@ function queryTabs(query_info) {
 
     browserTabs.query(query, queryTabsOnSuccess);
   }
-  catch(error) {
+  catch (error) {
     queryTabsOnFailure(error);
   }
 }
@@ -342,7 +289,7 @@ function moveTabs(move_triplets) {
   // we request a move of a single tab and when it happens, we call ourselves
   // again with the remaining tabs (first omitted)
   const [tabId, windowId, index] = move_triplets[0];
-  browserTabs.move(tabId, {index: index, windowId: windowId},
+  browserTabs.move(tabId, { index: index, windowId: windowId },
     (tab) => moveTabs(move_triplets.slice(1))
   );
 }
@@ -350,7 +297,6 @@ function moveTabs(move_triplets) {
 function closeTabs(tab_ids) {
   try {
     if (!tab_ids || !Array.isArray(tab_ids)) {
-      
       sendError('Invalid tab_ids parameter');
       return;
     }
@@ -359,22 +305,19 @@ function closeTabs(tab_ids) {
     const numericIds = tab_ids.map(id => parseTabId(id));
     browserTabs.close(numericIds, () => sendResponse('OK'));
   } catch (error) {
-    
     sendError('Failed to close tabs');
   }
 }
 
-function openUrls(urls, window_id, first_result="") {
-  try {
-    if (urls.length == 0) {
-      sendResponse([]);
-      return;
-    }
+function openUrls(urls, window_id, first_result = "") {
+  if (urls.length == 0) {
+    sendResponse([]);
+    return;
+  }
 
   if (window_id === 0) {
-    browserTabs.create({'url': urls[0], windowId: 0}, (window) => {
+    browserTabs.create({ 'url': urls[0], windowId: 0 }, (window) => {
       result = `${window.id}.${window.tabs[0].id}`;
-      
       urls = urls.slice(1);
       openUrls(urls, window.id, result);
     });
@@ -383,9 +326,8 @@ function openUrls(urls, window_id, first_result="") {
 
   var promises = [];
   for (let url of urls) {
-    
     promises.push(new Promise((resolve, reject) => {
-      browserTabs.create({'url': url, windowId: window_id},
+      browserTabs.create({ 'url': url, windowId: window_id },
         (tab) => resolve(`${tab.windowId}.${tab.id}`)
       );
     }))
@@ -397,22 +339,13 @@ function openUrls(urls, window_id, first_result="") {
     const data = Array.prototype.concat(...result)
     sendResponse(data);
   });
-  } catch (error) {
-    
-    sendError('Failed to open URLs');
-  }
 }
 
 function createTab(url) {
-  try {
-    browserTabs.create({'url': url},
-      (tab) => {
-        sendResponse([`${tab.windowId}.${tab.id}`]);
+  browserTabs.create({ 'url': url },
+    (tab) => {
+      sendResponse([`${tab.windowId}.${tab.id}`]);
     });
-  } catch (error) {
-    
-    sendError('Failed to create tab');
-  }
 }
 
 function updateTabs(updates) {
@@ -423,7 +356,6 @@ function updateTabs(updates) {
 
   var promises = [];
   for (let update of updates) {
-    
     promises.push(new Promise((resolve, reject) => {
       browserTabs.update(update.tab_id, update.properties,
         (tab) => { resolve(`${tab.windowId}.${tab.id}`) },
@@ -441,38 +373,23 @@ function updateTabs(updates) {
 }
 
 function activateTab(tab_id, focused) {
-  try {
-    // Convert string tab ID to integer for Chrome API
-    const tabIdInt = parseTabId(tab_id);
-    browserTabs.activate(tabIdInt, focused);
-    sendResponse('OK');
-  } catch (error) {
-    
-    sendError('Failed to activate tab');
-  }
+  // Convert string tab ID to integer for Chrome API
+  const tabIdInt = parseTabId(tab_id);
+  browserTabs.activate(tabIdInt, focused);
+  sendResponse('OK');
 }
 
 function getActiveTabs() {
-  try {
-    browserTabs.getActive(tabs => {
-        var result = tabs.map(tab => tab.windowId + "." + tab.id).toString()
-        sendResponse(result);
-    });
-  } catch (error) {
-    
-    sendError('Failed to get active tabs');
-  }
+  browserTabs.getActive(tabs => {
+    var result = tabs.map(tab => tab.windowId + "." + tab.id).toString()
+    sendResponse(result);
+  });
 }
 
 function getActiveScreenshot() {
-  try {
-    browserTabs.getActiveScreenshot(data => {
-      sendResponse(data);
-    });
-  } catch (error) {
-    
-    sendError('Failed to get screenshot');
-  }
+  browserTabs.getActiveScreenshot(data => {
+    sendResponse(data);
+  });
 }
 
 function getWordsScript(match_regex, join_with) {
@@ -502,7 +419,6 @@ function listOr(list, default_value) {
 
 function getWordsFromTabs(tabs, match_regex, join_with) {
   var promises = [];
-  
   const script = getWordsScript(match_regex, join_with);
 
   for (let tab of tabs) {
@@ -510,13 +426,9 @@ function getWordsFromTabs(tabs, match_regex, join_with) {
       (resolve, reject) => browserTabs.runScript(tab.id, script, null,
         (words, _payload) => {
           words = listOr(words, []);
-          
           resolve(words);
         },
-        (error, _payload) => {
-          
-          resolve([]);
-        }
+        (error, _payload) => resolve([])
       )
     );
     promises.push(promise);
@@ -524,7 +436,6 @@ function getWordsFromTabs(tabs, match_regex, join_with) {
   Promise.all(promises).then(
     (all_words) => {
       const result = Array.prototype.concat(...all_words);
-      
       sendResponse(result);
     }
   )
@@ -532,16 +443,13 @@ function getWordsFromTabs(tabs, match_regex, join_with) {
 
 function getWords(tab_id, match_regex, join_with) {
   if (tab_id == null) {
-    
     browserTabs.getActive(
       (tabs) => getWordsFromTabs(tabs, match_regex, join_with),
     );
   } else {
     const script = getWordsScript(match_regex, join_with);
-    
     browserTabs.runScript(tab_id, script, null,
-      (words, _payload) => sendResponse(listOr(words, [])),
-      (error, _payload) => {},
+      (words, _payload) => sendResponse(listOr(words, []))
     );
   }
 }
@@ -549,29 +457,20 @@ function getWords(tab_id, match_regex, join_with) {
 function getTextOrHtmlFromTabs(tabs, scriptGetter, delimiter_regex, replace_with, onSuccess) {
   var promises = [];
   const script = scriptGetter(delimiter_regex, replace_with)
-  
 
   lines = [];
   for (let tab of tabs) {
-    // 
     var promise = new Promise(
       (resolve, reject) => browserTabs.runScript(tab.id, script, tab,
         (text, current_tab) => {
-          // let as_text = JSON.stringify(text);
-          // I don't know why, but an array of one item is sent here, so I take
-          // the first item.
+          // Array of one item is sent here, so take the first item
           if (text && text[0]) {
-            
-            resolve({tab: current_tab, text: text[0]});
+            resolve({ tab: current_tab, text: text[0] });
           } else {
-            
-            resolve({tab: current_tab, text: ''});
+            resolve({ tab: current_tab, text: '' });
           }
         },
-        (error, current_tab) => {
-          
-          resolve({tab: current_tab, text: ''});
-        }
+        (error, current_tab) => resolve({ tab: current_tab, text: '' })
       )
     );
     promises.push(promise);
@@ -581,19 +480,13 @@ function getTextOrHtmlFromTabs(tabs, scriptGetter, delimiter_regex, replace_with
 }
 
 function getTextOnRunScriptSuccess(all_results) {
-  
-  
-  // 
   lines = [];
   for (let result of all_results) {
-    // 
     tab = result['tab'];
     text = result['text'];
-    // 
     let line = tab.windowId + "." + tab.id + "\t" + tab.title + "\t" + tab.url + "\t" + text;
     lines.push(line);
   }
-  // lines = lines.sort(naturalCompare);
   sendResponse(lines);
 }
 
@@ -604,8 +497,8 @@ function getTextOnListSuccess(tabs, delimiter_regex, replace_with) {
 }
 
 function getText(delimiter_regex, replace_with) {
-  browserTabs.list({'discarded': false},
-      (tabs) => getTextOnListSuccess(tabs, delimiter_regex, replace_with),
+  browserTabs.list({ 'discarded': false },
+    (tabs) => getTextOnListSuccess(tabs, delimiter_regex, replace_with),
   );
 }
 
@@ -616,107 +509,85 @@ function getHtmlOnListSuccess(tabs, delimiter_regex, replace_with) {
 }
 
 function getHtml(delimiter_regex, replace_with) {
-  browserTabs.list({'discarded': false},
-      (tabs) => getHtmlOnListSuccess(tabs, delimiter_regex, replace_with),
+  browserTabs.list({ 'discarded': false },
+    (tabs) => getHtmlOnListSuccess(tabs, delimiter_regex, replace_with),
   );
 }
 
 function getBrowserName() {
-  try {
-    const name = browserTabs.getBrowserName();
-    sendResponse(name);
-  } catch (error) {
-    
-    sendError('Failed to get browser name');
-  }
+  const name = browserTabs.getBrowserName();
+  sendResponse(name);
 }
 
-/*
-Listen for messages from the app.
-*/
 function handleMessage(command) {
-  
-
-  if (command['name'] == 'list_tabs') {
-    
-    listTabs();
+  // Ensure connection on every message (in case service worker was dormant)
+  if (!port) {
+    connect();
   }
 
+  if (command['name'] == 'list_tabs') {
+    listTabs();
+  }
   else if (command['name'] == 'query_tabs') {
-    
     queryTabs(command['args']['query_info']);
   }
 
   else if (command['name'] == 'close_tabs') {
-    
     closeTabs(command['args']['tab_ids']);
   }
 
   else if (command['name'] == 'move_tabs') {
-    
     moveTabs(command['args']['move_triplets']);
   }
 
   else if (command['name'] == 'open_urls') {
-    
     openUrls(command['args']['urls'], command['args']['window_id']);
   }
 
   else if (command['name'] == 'new_tab') {
-    
     createTab(command['args']['url']);
   }
 
   else if (command['name'] == 'update_tabs') {
-    
     updateTabs(command['args']['updates']);
   }
 
   else if (command['name'] == 'activate_tab') {
-    
     activateTab(command['args']['tab_id'], !!command['args']['focused']);
   }
 
   else if (command['name'] == 'get_active_tabs') {
-    
     getActiveTabs();
   }
 
   else if (command['name'] == 'get_screenshot') {
-    
     getActiveScreenshot();
   }
 
   else if (command['name'] == 'get_words') {
-    
     getWords(command['tab_id'], command['match_regex'], command['join_with']);
   }
 
   else if (command['name'] == 'get_text') {
-    
     getText(command['delimiter_regex'], command['replace_with']);
   }
 
   else if (command['name'] == 'get_html') {
-    
     getHtml(command['delimiter_regex'], command['replace_with']);
   }
 
   else if (command['name'] == 'get_browser') {
-    
     getBrowserName();
   }
 }
 
 function handleDisconnect() {
-  
-  if(chrome.runtime.lastError) {
-    
-  } else {
-    
-  }
-  // Try to reconnect after a delay
-  
-  setTimeout(reconnect, 1000);
+  // Clear the port reference
+  port = null;
+
+  // Try to reconnect after a short delay
+  setTimeout(() => {
+    connect();
+  }, 1000);
 }
 
