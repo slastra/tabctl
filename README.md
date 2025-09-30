@@ -45,7 +45,7 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 3. **Install browser extensions:**
 
 **Firefox:**
-- Download `tabctl-firefox-1.1.0.xpi` from releases
+- Download `tabctl-firefox-1.1.3.xpi` from releases
 - Open Firefox → `about:addons`
 - Click gear icon → "Install Add-on From File..."
 - Select the XPI file
@@ -124,7 +124,7 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 
 - **tabctl** - Command-line interface
 - **tabctl-mediator** - Native messaging host with D-Bus server
-- **Browser Extensions** - Firefox (v1.1.0) and Chrome extensions
+- **Browser Extensions** - Firefox (v1.1.3) and Chrome (v1.1.3) extensions
 - **D-Bus Services** - `dev.slastra.TabCtl.Firefox`, `dev.slastra.TabCtl.Brave`
 
 ## Troubleshooting

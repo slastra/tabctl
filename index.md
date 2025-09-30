@@ -105,7 +105,7 @@ TabCtl is open source software released under the MIT License. Contributions are
 
 - **Issues**: [GitHub Issues](https://github.com/slastra/tabctl/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/slastra/tabctl/discussions)
-- **Latest Release**: [v1.1.0](https://github.com/slastra/tabctl/releases/latest)
+- **Latest Release**: [v1.1.3](https://github.com/slastra/tabctl/releases/latest)
 
 ## Acknowledgments
 
