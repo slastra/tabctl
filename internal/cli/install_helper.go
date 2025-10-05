@@ -133,9 +133,6 @@ func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
 	return nil
 }
 
-// Fixed Chrome extension ID for development builds (generated from manifest key)
-const chromeDevExtensionID = "iifikbcifohpjakkcdlndafhpgfoipmp"
-
 // createManifestForBrowser creates a native messaging manifest for the specified browser
 func createManifestForBrowser(browser BrowserInfo, mediatorPath string) *NativeMessagingManifest {
 	// Convert path for Windows JSON escaping
@@ -154,9 +151,9 @@ func createManifestForBrowser(browser BrowserInfo, mediatorPath string) *NativeM
 	case "firefox":
 		manifest.AllowedExtensions = []string{config.ExtensionID}
 	case "chromium":
-		// Use fixed development extension ID for Chrome-based browsers
+		// Use Chrome Web Store extension ID
 		manifest.AllowedOrigins = []string{
-			fmt.Sprintf("chrome-extension://%s/", chromeDevExtensionID),
+			fmt.Sprintf("chrome-extension://%s/", config.ChromeID),
 		}
 	}
 
