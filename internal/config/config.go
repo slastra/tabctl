@@ -12,8 +12,8 @@ const (
 // Native messaging host names
 const (
 	NativeHostName = "tabctl_mediator"
-	ExtensionID    = "tabctl@slastra.github.io" // Firefox
-	ChromeID       = ""  // Chrome/Chromium - will be generated when published
+	ExtensionID    = "tabctl@slastra.github.io"   // Firefox
+	ChromeID       = "baomblllgemcgbignhpbipgiofmjdhpn" // Chrome/Chromium/Brave
 )
 
 // Browser names
