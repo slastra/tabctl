@@ -11,6 +11,9 @@ ASMFLAGS=-asmflags="all=-trimpath=$(PWD)"
 # Platforms to build for
 PLATFORMS=linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 
+# Chrome extension signing key
+CHROME_KEY=extensions/chrome-private-key.pem
+
 .PHONY: help build install clean test lint fmt deps dev release extensions build-extensions
 
 help: ## Show this help message
@@ -80,12 +83,25 @@ release: clean deps test lint package extensions ## Create a full release
 build-extensions: ## Build browser extensions from shared source
 	@./scripts/build-extensions.sh
 
-extensions: build-extensions ## Package browser extensions
+extensions: build-extensions ## Package browser extensions for release
 	@mkdir -p $(DIST_DIR)
-	@echo "Packaging Firefox extension..."
-	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip .
-	@echo "Packaging Chrome extension..."
-	@cd extensions/chrome && zip -r ../../$(DIST_DIR)/tabctl-chrome-extension.zip .
+	@echo "Packaging Firefox extension (zip)..."
+	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip . -x '.*'
+	@echo "Packaging Chrome extension (zip)..."
+	@cd extensions/chrome && zip -r ../../$(DIST_DIR)/tabctl-chrome-extension.zip . -x '.*'
+	@echo "Packaging Chrome extension (crx)..."
+	@CHROMIUM=$$(which brave || which google-chrome || which chromium 2>/dev/null); \
+	if [ -z "$$CHROMIUM" ]; then \
+		echo "Error: No Chromium-based browser found for CRX packaging"; \
+		exit 1; \
+	fi; \
+	if [ ! -f $(CHROME_KEY) ]; then \
+		echo "Error: Chrome signing key not found at $(CHROME_KEY)"; \
+		exit 1; \
+	fi; \
+	$$CHROMIUM --pack-extension=$$(pwd)/extensions/chrome --pack-extension-key=$$(pwd)/$(CHROME_KEY) 2>/dev/null; \
+	mv extensions/chrome.crx $(DIST_DIR)/tabctl-chrome-extension.crx
+	@echo "Extensions packaged in $(DIST_DIR)/"
 
 ##@ Cleanup
 

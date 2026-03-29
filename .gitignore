@@ -3,6 +3,10 @@
 /tabctl-mediator
 *.exe
 
+# Build output
+build/
+dist/
+
 # Go build artifacts
 *.o
 *.a
