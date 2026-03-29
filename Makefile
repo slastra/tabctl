@@ -11,7 +11,7 @@ ASMFLAGS=-asmflags="all=-trimpath=$(PWD)"
 # Platforms to build for
 PLATFORMS=linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 
-.PHONY: help build install clean test lint fmt deps dev release extensions
+.PHONY: help build install clean test lint fmt deps dev release extensions build-extensions
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -77,7 +77,10 @@ release: clean deps test lint package extensions ## Create a full release
 
 ##@ Extensions
 
-extensions: ## Package browser extensions
+build-extensions: ## Build browser extensions from shared source
+	@./scripts/build-extensions.sh
+
+extensions: build-extensions ## Package browser extensions
 	@mkdir -p $(DIST_DIR)
 	@echo "Packaging Firefox extension..."
 	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip .

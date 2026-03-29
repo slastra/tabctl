@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/dbus"
 	"github.com/tabctl/tabctl/pkg/api"
 	"github.com/tabctl/tabctl/pkg/types"
@@ -76,7 +77,10 @@ func (c *DBusClient) Close() error {
 
 // ListTabs returns all tabs from the browser
 func (c *DBusClient) ListTabs() ([]types.Tab, error) {
-	tabInfos, err := c.client.ListTabs(c.browser)
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	tabInfos, err := c.client.ListTabs(ctx, c.browser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tabs via D-Bus: %w", err)
 	}
@@ -98,14 +102,20 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 
 // CloseTabs closes the specified tabs
 func (c *DBusClient) CloseTabs(tabIDs []string) error {
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
 	// D-Bus CloseTab expects comma-separated IDs
 	tabIDStr := strings.Join(tabIDs, ",")
-	return c.client.CloseTab(c.browser, tabIDStr)
+	return c.client.CloseTab(ctx, c.browser, tabIDStr)
 }
 
 // ActivateTab activates the specified tab
 func (c *DBusClient) ActivateTab(tabID string, focused bool) error {
-	return c.client.ActivateTab(c.browser, tabID)
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	return c.client.ActivateTab(ctx, c.browser, tabID, focused)
 }
 
 // MoveTabs moves tabs (not implemented)
@@ -270,7 +280,9 @@ func (c *DBusClient) OpenURLs(urls []string, windowID string) ([]string, error) 
 	var tabIDs []string
 
 	for _, url := range urls {
-		tabID, err := c.client.OpenTab(c.browser, url)
+		ctx, cancel := config.CommandContext()
+		tabID, err := c.client.OpenTab(ctx, c.browser, url)
+		cancel()
 		if err != nil {
 			return tabIDs, fmt.Errorf("failed to open URL %s: %w", url, err)
 		}
@@ -303,5 +315,8 @@ func DiscoverDBusBrowsers() ([]string, error) {
 	}
 	defer client.Close()
 
-	return client.DiscoverBrowsers()
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	return client.DiscoverBrowsers(ctx)
 }

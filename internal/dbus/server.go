@@ -17,7 +17,7 @@ type Server struct {
 
 type BrowserHandler interface {
 	ListTabs() ([]TabInfo, error)
-	ActivateTab(tabID string) error
+	ActivateTab(tabID string, focused bool) error
 	CloseTab(tabID string) error
 	OpenTab(url string) (string, error)
 }
@@ -89,7 +89,8 @@ func (s *Server) Stop() error {
 	if s.conn != nil {
 		serviceName := ServiceName(s.browser)
 		s.conn.ReleaseName(serviceName)
-		return s.conn.Close()
+		// Don't close the connection — dbus.SessionBus() returns a shared
+		// process-level singleton. Closing it would break other callers.
 	}
 	return nil
 }
@@ -103,8 +104,8 @@ func (s *Server) ListTabs() ([]TabInfo, *dbus.Error) {
 	return tabs, nil
 }
 
-func (s *Server) ActivateTab(tabID string) (bool, *dbus.Error) {
-	err := s.handler.ActivateTab(tabID)
+func (s *Server) ActivateTab(tabID string, focused bool) (bool, *dbus.Error) {
+	err := s.handler.ActivateTab(tabID, focused)
 	if err != nil {
 		return false, dbus.MakeFailedError(err)
 	}
@@ -136,6 +137,7 @@ func generateIntrospection() string {
 		</method>
 		<method name="ActivateTab">
 			<arg direction="in" type="s" name="tab_id" />
+			<arg direction="in" type="b" name="focused" />
 			<arg direction="out" type="b" name="success" />
 		</method>
 		<method name="CloseTab">

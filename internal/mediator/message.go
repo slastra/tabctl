@@ -1,5 +1,9 @@
 package mediator
 
+import (
+	"github.com/tabctl/tabctl/internal/errors"
+)
+
 // Message types for browser extension communication
 
 // Command represents a command to send to the browser
@@ -57,22 +61,7 @@ func NewCommand(name string, args map[string]interface{}) *Command {
 // ValidateCommand validates a command
 func ValidateCommand(cmd *Command) error {
 	if cmd.Command == "" {
-		return &ValidationError{
-			Field:   "command",
-			Value:   cmd.Command,
-			Message: "command name is required",
-		}
+		return errors.NewValidationError("command", cmd.Command, "command name is required")
 	}
 	return nil
-}
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	Field   string
-	Value   interface{}
-	Message string
-}
-
-func (e *ValidationError) Error() string {
-	return e.Message
 }

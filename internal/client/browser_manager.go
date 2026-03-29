@@ -102,7 +102,7 @@ func (bm *BrowserManager) CloseTabs(tabIDs []string) error {
 }
 
 // ActivateTab activates a specific tab
-func (bm *BrowserManager) ActivateTab(tabID string) error {
+func (bm *BrowserManager) ActivateTab(tabID string, focused bool) error {
 	if len(bm.clients) == 0 {
 		return fmt.Errorf("no browsers found on D-Bus")
 	}
@@ -110,7 +110,7 @@ func (bm *BrowserManager) ActivateTab(tabID string) error {
 	// Find the right client based on tab prefix
 	for _, client := range bm.clients {
 		if strings.HasPrefix(tabID, client.GetPrefix()) {
-			return client.ActivateTab(tabID, true)
+			return client.ActivateTab(tabID, focused)
 		}
 	}
 

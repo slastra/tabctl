@@ -1,10 +1,14 @@
 package dbus
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/godbus/dbus/v5"
+	"github.com/tabctl/tabctl/internal/config"
+	tabErrors "github.com/tabctl/tabctl/internal/errors"
 )
 
 type Client struct {
@@ -21,18 +25,26 @@ func NewClient() (*Client, error) {
 }
 
 func (c *Client) Close() error {
-	if c.conn != nil {
-		return c.conn.Close()
-	}
+	// dbus.SessionBus() returns a shared process-level connection.
+	// Closing it would break all other callers. The connection is
+	// cleaned up automatically when the process exits.
 	return nil
 }
 
-func (c *Client) DiscoverBrowsers() ([]string, error) {
+// wrapTimeoutError wraps context.DeadlineExceeded as a TimeoutError.
+func wrapTimeoutError(err error, operation string) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return tabErrors.NewTimeoutError(operation, config.TransportTimeout.String())
+	}
+	return err
+}
+
+func (c *Client) DiscoverBrowsers(ctx context.Context) ([]string, error) {
 	var names []string
 	obj := c.conn.Object("org.freedesktop.DBus", "/org/freedesktop/DBus")
-	err := obj.Call("org.freedesktop.DBus.ListNames", 0).Store(&names)
+	err := obj.CallWithContext(ctx, "org.freedesktop.DBus.ListNames", 0).Store(&names)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list D-Bus names: %w", err)
+		return nil, wrapTimeoutError(err, "DiscoverBrowsers")
 	}
 
 	var browsers []string
@@ -49,31 +61,31 @@ func (c *Client) DiscoverBrowsers() ([]string, error) {
 	return browsers, nil
 }
 
-func (c *Client) ListTabs(browser string) ([]TabInfo, error) {
+func (c *Client) ListTabs(ctx context.Context, browser string) ([]TabInfo, error) {
 	serviceName := ServiceName(browser)
 	objectPath := ObjectPath(browser)
 
 	obj := c.conn.Object(serviceName, objectPath)
 
 	var tabs []TabInfo
-	err := obj.Call(InterfaceBrowser+".ListTabs", 0).Store(&tabs)
+	err := obj.CallWithContext(ctx, InterfaceBrowser+".ListTabs", 0).Store(&tabs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tabs: %w", err)
+		return nil, wrapTimeoutError(err, "ListTabs")
 	}
 
 	return tabs, nil
 }
 
-func (c *Client) ActivateTab(browser, tabID string) error {
+func (c *Client) ActivateTab(ctx context.Context, browser, tabID string, focused bool) error {
 	serviceName := ServiceName(browser)
 	objectPath := ObjectPath(browser)
 
 	obj := c.conn.Object(serviceName, objectPath)
 
 	var success bool
-	err := obj.Call(InterfaceBrowser+".ActivateTab", 0, tabID).Store(&success)
+	err := obj.CallWithContext(ctx, InterfaceBrowser+".ActivateTab", 0, tabID, focused).Store(&success)
 	if err != nil {
-		return fmt.Errorf("failed to activate tab: %w", err)
+		return wrapTimeoutError(err, "ActivateTab")
 	}
 	if !success {
 		return fmt.Errorf("tab activation failed")
@@ -82,16 +94,16 @@ func (c *Client) ActivateTab(browser, tabID string) error {
 	return nil
 }
 
-func (c *Client) CloseTab(browser, tabID string) error {
+func (c *Client) CloseTab(ctx context.Context, browser, tabID string) error {
 	serviceName := ServiceName(browser)
 	objectPath := ObjectPath(browser)
 
 	obj := c.conn.Object(serviceName, objectPath)
 
 	var success bool
-	err := obj.Call(InterfaceBrowser+".CloseTab", 0, tabID).Store(&success)
+	err := obj.CallWithContext(ctx, InterfaceBrowser+".CloseTab", 0, tabID).Store(&success)
 	if err != nil {
-		return fmt.Errorf("failed to close tab: %w", err)
+		return wrapTimeoutError(err, "CloseTab")
 	}
 	if !success {
 		return fmt.Errorf("tab close failed")
@@ -100,16 +112,16 @@ func (c *Client) CloseTab(browser, tabID string) error {
 	return nil
 }
 
-func (c *Client) OpenTab(browser, url string) (string, error) {
+func (c *Client) OpenTab(ctx context.Context, browser, url string) (string, error) {
 	serviceName := ServiceName(browser)
 	objectPath := ObjectPath(browser)
 
 	obj := c.conn.Object(serviceName, objectPath)
 
 	var tabID string
-	err := obj.Call(InterfaceBrowser+".OpenTab", 0, url).Store(&tabID)
+	err := obj.CallWithContext(ctx, InterfaceBrowser+".OpenTab", 0, url).Store(&tabID)
 	if err != nil {
-		return "", fmt.Errorf("failed to open tab: %w", err)
+		return "", wrapTimeoutError(err, "OpenTab")
 	}
 
 	return tabID, nil

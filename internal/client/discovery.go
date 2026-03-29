@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/dbus"
 )
 
@@ -21,34 +22,24 @@ func DiscoverMediators() []MediatorInfo {
 	}
 	defer client.Close()
 
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
 	// Discover browsers on D-Bus
-	browsers, err := client.DiscoverBrowsers()
+	browsers, err := client.DiscoverBrowsers(ctx)
 	if err != nil {
 		return mediators
 	}
 
 	// Create MediatorInfo for each browser
 	for _, browser := range browsers {
-		prefix := determineBrowserPrefix(browser)
-
 		mediator := MediatorInfo{
 			Browser: browser,
-			Prefix:  prefix,
+			Prefix:  determinePrefixForBrowser(browser),
 		}
 
 		mediators = append(mediators, mediator)
 	}
 
 	return mediators
-}
-
-func determineBrowserPrefix(browser string) string {
-	switch browser {
-	case "Firefox":
-		return "f."
-	case "Chrome", "Chromium", "Brave":
-		return "c."
-	default:
-		return "u."
-	}
 }

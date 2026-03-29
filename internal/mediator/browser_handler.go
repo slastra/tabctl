@@ -50,7 +50,7 @@ func (h *DBusHandler) ListTabs() ([]dbus.TabInfo, error) {
 	return dbusTabsInfo, nil
 }
 
-func (h *DBusHandler) ActivateTab(tabID string) error {
+func (h *DBusHandler) ActivateTab(tabID string, focused bool) error {
 	// Extract numeric tab ID from format like "c.1.123"
 	parts := strings.Split(tabID, ".")
 	if len(parts) != 3 {
@@ -62,8 +62,7 @@ func (h *DBusHandler) ActivateTab(tabID string) error {
 		return fmt.Errorf("invalid tab ID: %s", parts[2])
 	}
 
-	// ActivateTab takes (tabID int, focused bool)
-	return h.api.ActivateTab(tabIDNum, true)
+	return h.api.ActivateTab(tabIDNum, focused)
 }
 
 func (h *DBusHandler) CloseTab(tabID string) error {

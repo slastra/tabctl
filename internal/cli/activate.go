@@ -32,7 +32,7 @@ func runActivateTab(tabID string, focused bool) error {
 	defer bm.Close()
 
 	// Activate the tab
-	if err := bm.ActivateTab(tabID); err != nil {
+	if err := bm.ActivateTab(tabID, focused); err != nil {
 		return fmt.Errorf("failed to activate tab: %w", err)
 	}
 

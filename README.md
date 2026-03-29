@@ -45,7 +45,7 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 3. **Install browser extensions:**
 
 **Firefox:**
-- Download `tabctl-firefox-1.1.3.xpi` from releases
+- Download `tabctl-firefox-1.2.0.xpi` from releases
 - Open Firefox → `about:addons`
 - Click gear icon → "Install Add-on From File..."
 - Select the XPI file
@@ -106,10 +106,10 @@ Quick tab switching with rofi (includes desktop switching):
 
 ```bash
 # For X11 (wmctrl)
-./scripts/rofi-wmctrl.sh
+./scripts/rofi-tabctl-wmctrl.sh
 
-# For Hyprland
-./scripts/rofi-hyprctl.sh
+# For Niri (Wayland)
+./scripts/rofi-tabctl-niri.sh
 ```
 
 Add to your window manager keybindings for instant access.
@@ -124,7 +124,7 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 
 - **tabctl** - Command-line interface
 - **tabctl-mediator** - Native messaging host with D-Bus server
-- **Browser Extensions** - Firefox (v1.1.3) and Chrome (v1.1.3) extensions
+- **Browser Extensions** - Firefox (v1.2.0) and Chrome (v1.2.0) extensions
 - **D-Bus Services** - `dev.slastra.TabCtl.Firefox`, `dev.slastra.TabCtl.Brave`
 
 ## Troubleshooting

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"time"
 )
 
@@ -8,6 +9,11 @@ import (
 const (
 	TransportTimeout = 30 * time.Second
 )
+
+// CommandContext returns a context with the default command timeout.
+func CommandContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), TransportTimeout)
+}
 
 // Native messaging host names
 const (

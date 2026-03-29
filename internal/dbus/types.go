@@ -19,7 +19,7 @@ type TabInfo struct {
 
 type BrowserServer interface {
 	ListTabs() ([]TabInfo, *dbus.Error)
-	ActivateTab(tabID string) (bool, *dbus.Error)
+	ActivateTab(tabID string, focused bool) (bool, *dbus.Error)
 	CloseTab(tabID string) (bool, *dbus.Error)
 	OpenTab(url string) (string, *dbus.Error)
 }
