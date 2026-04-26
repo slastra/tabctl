@@ -42,19 +42,10 @@ go build -o tabctl-mediator ./cmd/tabctl-mediator
 ./tabctl install
 ```
 
-3. **Install browser extensions:**
+3. **Install the browser extension:**
 
-**Firefox:**
-- Download `tabctl-firefox-1.2.0.xpi` from releases
-- Open Firefox → `about:addons`
-- Click gear icon → "Install Add-on From File..."
-- Select the XPI file
-
-**Chrome/Brave:**
-- Open `chrome://extensions/` or `brave://extensions/`
-- Enable "Developer mode"
-- Click "Load unpacked"
-- Select `extensions/chrome/` directory
+- Firefox / Zen: <https://addons.mozilla.org/en-US/firefox/addon/tabctl1/>
+- Chrome / Chromium / Brave / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
 
 4. **Restart browser** to activate native messaging
 

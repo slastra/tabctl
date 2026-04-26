@@ -87,24 +87,25 @@ func (m InstallResultsModel) View() string {
 
 	content.WriteString("\n")
 
-	// Extension paths section
+	// Extension store links
 	if successCount > 0 {
-		content.WriteString(lipgloss.NewStyle().Bold(true).Render("Extensions:") + "\n")
+		content.WriteString(lipgloss.NewStyle().Bold(true).Render("Install the extension:") + "\n")
+		linkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
 
 		if m.hasChrome {
-			content.WriteString("  • Chrome/Brave/Chromium:\n")
+			content.WriteString("  • Chrome / Chromium / Brave / Helium:\n")
 			content.WriteString(fmt.Sprintf("    %s\n",
-				lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Render("extensions/chrome/")))
+				linkStyle.Render("https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn")))
 		}
 
 		if m.hasFirefox {
-			content.WriteString("  • Firefox/Zen:\n")
+			content.WriteString("  • Firefox / Zen:\n")
 			content.WriteString(fmt.Sprintf("    %s\n",
-				lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Render("extensions/firefox/")))
+				linkStyle.Render("https://addons.mozilla.org/en-US/firefox/addon/tabctl1/")))
 		}
 
 		content.WriteString("\n")
-		content.WriteString(lipgloss.NewStyle().Italic(true).Render("Load unpacked extensions in browser developer settings, then restart.") + "\n")
+		content.WriteString(lipgloss.NewStyle().Italic(true).Render("Then restart the browser.") + "\n")
 	} else {
 		content.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("No browsers were successfully configured.") + "\n")
 	}
@@ -117,7 +118,7 @@ func (m InstallResultsModel) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
 		Padding(1, 2).
-		Width(50)
+		Width(95)
 
 	return boxStyle.Render(content.String())
 }
