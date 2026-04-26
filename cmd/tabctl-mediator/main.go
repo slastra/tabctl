@@ -15,14 +15,11 @@ import (
 
 func main() {
 	var logFile string
-	flag.StringVar(&logFile, "log", "", "Log file path (default: /tmp/tabctl-mediator-<pid>.log)")
+	flag.StringVar(&logFile, "log", "/tmp/tabctl-mediator.log", "Log file path")
 	flag.Parse()
 
 	browser := detectBrowser()
 
-	if logFile == "" {
-		logFile = fmt.Sprintf("/tmp/tabctl-mediator-%d.log", os.Getpid())
-	}
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		os.Exit(1)

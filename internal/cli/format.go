@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/tabctl/tabctl/pkg/types"
 )
@@ -85,51 +84,3 @@ func FormatTabList(tabs []types.Tab) error {
 	return FormatOutput(tabs)
 }
 
-// FormatWindowList formats a list of windows
-func FormatWindowList(windows []types.Window) error {
-	switch outputFormat {
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(windows)
-	case "simple":
-		for _, window := range windows {
-			fmt.Printf("Window %d (%d tabs)\n", window.ID, window.TabCount)
-		}
-	default: // tsv
-		for _, window := range windows {
-			fmt.Printf("%d%s%d\n", window.ID, delimiter, window.TabCount)
-		}
-	}
-	return nil
-}
-
-// FormatSingleValue formats a single value (like active tab ID)
-func FormatSingleValue(value string) error {
-	switch outputFormat {
-	case "json":
-		result := map[string]string{"value": value}
-		encoder := json.NewEncoder(os.Stdout)
-		return encoder.Encode(result)
-	default:
-		fmt.Println(value)
-	}
-	return nil
-}
-
-// FormatStringList formats a list of strings
-func FormatStringList(items []string) error {
-	switch outputFormat {
-	case "json":
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(items)
-	case "simple":
-		for _, item := range items {
-			fmt.Println(item)
-		}
-	default: // tsv
-		fmt.Println(strings.Join(items, delimiter))
-	}
-	return nil
-}

@@ -1,4 +1,4 @@
-# Maintainer: Shaun Lastra <shaun@slastra.dev>
+# Maintainer: Shaun Lastra <shaun@lastra.us>
 pkgname=tabctl-git
 pkgver=0.2.0.r0.g$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 pkgrel=1
