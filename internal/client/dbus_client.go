@@ -36,15 +36,15 @@ func NewDBusClient(browser string) (api.Client, error) {
 	}, nil
 }
 
+// determinePrefixForBrowser returns the user-visible prefix for tab IDs from
+// this browser. The lowercased browser name is used as-is so two browsers in
+// the same family (e.g. Brave and Helium) get distinct prefixes and the
+// CLI's tab-ID-based routing stays unambiguous.
 func determinePrefixForBrowser(browser string) string {
-	switch strings.ToLower(browser) {
-	case "firefox":
-		return "f."
-	case "chrome", "chromium", "brave", "helium":
-		return "c."
-	default:
-		return "u." // unknown
+	if browser == "" {
+		return "unknown."
 	}
+	return strings.ToLower(browser) + "."
 }
 
 // GetPrefix returns the client prefix
@@ -88,7 +88,7 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 	tabs := make([]types.Tab, len(tabInfos))
 	for i, info := range tabInfos {
 		tabs[i] = types.Tab{
-			ID:     info.ID,
+			ID:     c.prefix + info.ID,
 			Title:  info.Title,
 			URL:    info.URL,
 			Index:  int(info.Index),
@@ -105,9 +105,13 @@ func (c *DBusClient) CloseTabs(tabIDs []string) error {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	// D-Bus CloseTab expects comma-separated IDs
-	tabIDStr := strings.Join(tabIDs, ",")
-	return c.client.CloseTab(ctx, c.browser, tabIDStr)
+	// Strip the browser-name prefix before forwarding: the mediator and the
+	// JS extension speak the original "c.win.tab" / "f.win.tab" format.
+	stripped := make([]string, len(tabIDs))
+	for i, id := range tabIDs {
+		stripped[i] = strings.TrimPrefix(id, c.prefix)
+	}
+	return c.client.CloseTab(ctx, c.browser, strings.Join(stripped, ","))
 }
 
 // ActivateTab activates the specified tab
@@ -115,7 +119,7 @@ func (c *DBusClient) ActivateTab(tabID string, focused bool) error {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	return c.client.ActivateTab(ctx, c.browser, tabID, focused)
+	return c.client.ActivateTab(ctx, c.browser, strings.TrimPrefix(tabID, c.prefix), focused)
 }
 
 // UpdateTabs updates tabs with the given properties
@@ -213,15 +217,16 @@ func (c *DBusClient) GetWindows() ([]types.Window, error) {
 		return nil, err
 	}
 
-	// Group tabs by window ID
+	// Group tabs by window ID. Tab IDs look like "<browser>.<family>.<win>.<tab>"
+	// (e.g. "helium.c.1.123"); the window component is the second-to-last segment.
 	windowMap := make(map[string][]types.Tab)
 	for _, tab := range tabs {
-		// Extract window ID from tab ID (e.g., "c.1.123" -> "1")
 		parts := strings.Split(tab.ID, ".")
-		if len(parts) >= 2 {
-			windowID := parts[1]
-			windowMap[windowID] = append(windowMap[windowID], tab)
+		if len(parts) < 2 {
+			continue
 		}
+		windowID := parts[len(parts)-2]
+		windowMap[windowID] = append(windowMap[windowID], tab)
 	}
 
 	// Convert to Window types
@@ -281,7 +286,7 @@ func (c *DBusClient) OpenURLs(urls []string, windowID string) ([]string, error) 
 		if err != nil {
 			return tabIDs, fmt.Errorf("failed to open URL %s: %w", url, err)
 		}
-		tabIDs = append(tabIDs, tabID)
+		tabIDs = append(tabIDs, c.prefix+tabID)
 	}
 
 	return tabIDs, nil

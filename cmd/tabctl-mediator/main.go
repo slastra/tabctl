@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -83,27 +84,37 @@ func main() {
 	log.Printf("Shutdown complete, exiting at %s", time.Now().Format("15:04:05.000"))
 }
 
+// detectBrowser identifies which browser launched this mediator.
+//
+// Firefox/Zen pass their manifest path as argv[1], so we can identify them
+// directly. Chromium-family browsers (Chrome, Chromium, Brave, Helium) only
+// pass the chrome-extension:// origin, so we identify them by inspecting
+// the parent process binary via /proc/<ppid>/exe.
 func detectBrowser() string {
-	// Check command line arguments for browser hints
-	args := flag.Args()
-
-	for _, arg := range args {
-		// Chrome/Brave pass chrome-extension://
-		if strings.HasPrefix(arg, "chrome-extension://") {
-			return "Brave" // or detect specific Chrome variant
-		}
-		// Firefox passes manifest path
-		if strings.Contains(arg, ".mozilla/native-messaging-hosts/") {
+	for _, arg := range flag.Args() {
+		switch {
+		case strings.Contains(arg, "/.mozilla/"):
 			return "Firefox"
+		case strings.Contains(arg, "/.zen/"):
+			return "Zen"
 		}
 	}
 
-	// Default
-	return "Unknown"
-}
+	if exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", os.Getppid())); err == nil {
+		base := strings.ToLower(filepath.Base(exe))
+		switch {
+		case strings.Contains(base, "google-chrome"):
+			return "Chrome"
+		case strings.Contains(base, "chromium"):
+			return "Chromium"
+		case strings.Contains(base, "brave"):
+			return "Brave"
+		case strings.Contains(base, "helium"):
+			return "Helium"
+		case strings.Contains(base, "chrome"):
+			return "Chrome"
+		}
+	}
 
-func isTerminal(fd uintptr) bool {
-	// Simple check if fd is a terminal
-	_, err := os.Stdin.Stat()
-	return err == nil
+	return "Unknown"
 }

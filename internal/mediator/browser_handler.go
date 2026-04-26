@@ -51,15 +51,13 @@ func (h *DBusHandler) ListTabs() ([]dbus.TabInfo, error) {
 }
 
 func (h *DBusHandler) ActivateTab(tabID string, focused bool) error {
-	// Extract numeric tab ID from format like "c.1.123"
+	// The numeric tab ID is the last dot-separated segment, regardless of
+	// how many prefix segments the caller attached.
 	parts := strings.Split(tabID, ".")
-	if len(parts) != 3 {
-		return fmt.Errorf("invalid tab ID format: %s", tabID)
-	}
-
-	tabIDNum, err := strconv.Atoi(parts[2])
+	last := parts[len(parts)-1]
+	tabIDNum, err := strconv.Atoi(last)
 	if err != nil {
-		return fmt.Errorf("invalid tab ID: %s", parts[2])
+		return fmt.Errorf("invalid tab ID: %s", tabID)
 	}
 
 	return h.api.ActivateTab(tabIDNum, focused)

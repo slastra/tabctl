@@ -147,14 +147,21 @@ type TabInfo struct {
 
 ## Tab ID Format
 
-Tab IDs encode browser, window, and tab information:
+Tab IDs are prefixed with the lowercased browser name so multiple browsers in
+the same family (e.g. Brave + Helium) can be addressed unambiguously:
 
-- **Firefox:** `f.<window_id>.<tab_id>`
-  - Example: `f.1.2` (window 1, tab 2)
-- **Chrome/Brave:** `c.<window_id>.<tab_id>`
-  - Example: `c.1874583011.1874583012`
+- **Firefox:** `firefox.f.<window_id>.<tab_id>`
+- **Zen:** `zen.f.<window_id>.<tab_id>`
+- **Chrome:** `chrome.c.<window_id>.<tab_id>`
+- **Chromium:** `chromium.c.<window_id>.<tab_id>`
+- **Brave:** `brave.c.<window_id>.<tab_id>`
+- **Helium:** `helium.c.<window_id>.<tab_id>`
 
-The prefix allows routing commands to the correct browser.
+Example: `helium.c.1874583011.1874583012`
+
+The browser-name prefix is added by the CLI's D-Bus client on ingress and
+stripped on egress; the mediator and the JS extension speak the original
+two-segment family form (`c.<win>.<tab>` / `f.<win>.<tab>`).
 
 ## Native Messaging Protocol
 
