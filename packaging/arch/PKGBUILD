@@ -9,6 +9,7 @@ license=('MIT')
 depends=('dbus')
 makedepends=('go' 'git')
 optdepends=()
+options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
 sha256sums=('3ddc308aa7f1b7b388725a9ba52480ba1721a09cf7f48381a76b9fd9803713a0')
 install=tabctl.install
