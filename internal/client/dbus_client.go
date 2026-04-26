@@ -40,7 +40,7 @@ func determinePrefixForBrowser(browser string) string {
 	switch strings.ToLower(browser) {
 	case "firefox":
 		return "f."
-	case "chrome", "chromium", "brave":
+	case "chrome", "chromium", "brave", "helium":
 		return "c."
 	default:
 		return "u." // unknown

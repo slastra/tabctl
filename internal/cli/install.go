@@ -33,7 +33,7 @@ func runInstallMediator() error {
 
 	if len(detected) == 0 {
 		fmt.Println("No supported browsers detected.")
-		fmt.Println("Supported browsers: Firefox, Zen Browser, Chrome, Chromium, Brave")
+		fmt.Println("Supported browsers: Firefox, Zen Browser, Chrome, Chromium, Brave, Helium")
 		return fmt.Errorf("no supported browsers found")
 	}
 
@@ -75,22 +75,3 @@ func runInstallMediator() error {
 	return showInstallationResults(results)
 }
 
-// hasFirefoxBased checks if any detected browsers are Firefox-based
-func hasFirefoxBased(browsers []BrowserInfo) bool {
-	for _, browser := range browsers {
-		if browser.Type == "firefox" {
-			return true
-		}
-	}
-	return false
-}
-
-// hasChromiumBased checks if any detected browsers are Chromium-based
-func hasChromiumBased(browsers []BrowserInfo) bool {
-	for _, browser := range browsers {
-		if browser.Type == "chromium" {
-			return true
-		}
-	}
-	return false
-}

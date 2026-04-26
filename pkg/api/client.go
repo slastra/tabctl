@@ -6,18 +6,6 @@ import (
 	"github.com/tabctl/tabctl/pkg/types"
 )
 
-// ClientConfig holds configuration for creating clients
-type ClientConfig struct {
-	TargetHosts string
-	Timeout     int
-}
-
-// CreateClients creates clients based on configuration
-func CreateClients(config ClientConfig) ([]Client, error) {
-	// TODO: Implement client creation logic
-	return nil, errors.New("not implemented yet")
-}
-
 // CreateMultiClient creates a multi-client from individual clients
 func CreateMultiClient(clients []Client) MultiClient {
 	return &multiClient{

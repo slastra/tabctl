@@ -22,10 +22,3 @@ const (
 	ChromeID       = "baomblllgemcgbignhpbipgiofmjdhpn" // Chrome/Chromium/Brave
 )
 
-// Browser names
-const (
-	BrowserFirefox  = "firefox"
-	BrowserChrome   = "chrome"
-	BrowserChromium = "chromium"
-	BrowserBrave    = "brave"
-)
