@@ -334,18 +334,6 @@ function queryTabs(query_info) {
   }
 }
 
-function moveTabs(move_triplets) {
-  if (move_triplets.length == 0) {
-    sendResponse('OK');
-    return
-  }
-
-  const [tabId, windowId, index] = move_triplets[0];
-  browserTabs.move(tabId, { index: index, windowId: windowId },
-    (tab) => moveTabs(move_triplets.slice(1))
-  );
-}
-
 function closeTabs(tab_ids) {
   try {
     if (!tab_ids || !Array.isArray(tab_ids)) {
@@ -579,10 +567,6 @@ function handleMessage(command) {
 
   else if (command['name'] == 'close_tabs') {
     closeTabs(command['args']['tab_ids']);
-  }
-
-  else if (command['name'] == 'move_tabs') {
-    moveTabs(command['args']['move_triplets']);
   }
 
   else if (command['name'] == 'open_urls') {
