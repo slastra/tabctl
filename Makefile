@@ -7,6 +7,7 @@ DIST_DIR=dist
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"
 GCFLAGS=-gcflags="all=-trimpath=$(PWD)"
 ASMFLAGS=-asmflags="all=-trimpath=$(PWD)"
+GO_BUILD=go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS)
 
 # Platforms to build for
 PLATFORMS=linux/amd64 linux/arm64
@@ -27,8 +28,8 @@ deps: ## Install Go dependencies
 
 build: ## Build tabctl and tabctl-mediator
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/tabctl
-	go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-mediator ./cmd/tabctl-mediator
+	$(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/tabctl
+	$(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-mediator ./cmd/tabctl-mediator
 
 install: build ## Install the binary to $GOPATH/bin
 	go install $(LDFLAGS) ./cmd/tabctl
@@ -53,8 +54,8 @@ build-all: ## Build for all supported Linux architectures
 	@for platform in $(PLATFORMS); do \
 		ARCH=$$(echo $$platform | cut -d'/' -f2); \
 		echo "Building for linux/$$ARCH..."; \
-		GOOS=linux GOARCH=$$ARCH go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-$$ARCH ./cmd/tabctl; \
-		GOOS=linux GOARCH=$$ARCH go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-mediator-linux-$$ARCH ./cmd/tabctl-mediator; \
+		GOOS=linux GOARCH=$$ARCH $(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-$$ARCH ./cmd/tabctl; \
+		GOOS=linux GOARCH=$$ARCH $(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-mediator-linux-$$ARCH ./cmd/tabctl-mediator; \
 	done
 
 ##@ Release

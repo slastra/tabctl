@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/utils"
@@ -32,8 +33,13 @@ func runInstallMediator() error {
 	detected := detectInstalledBrowsers()
 
 	if len(detected) == 0 {
+		supported := getSupportedBrowsers()
+		names := make([]string, len(supported))
+		for i, b := range supported {
+			names[i] = b.Name
+		}
 		fmt.Println("No supported browsers detected.")
-		fmt.Println("Supported browsers: Firefox, Zen Browser, Chrome, Chromium, Brave, Helium")
+		fmt.Printf("Supported browsers: %s\n", strings.Join(names, ", "))
 		return fmt.Errorf("no supported browsers found")
 	}
 

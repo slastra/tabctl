@@ -127,7 +127,7 @@ func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
 	}
 
 	// Write manifest file
-	manifestPath := filepath.Join(browser.NativeHostPath, "tabctl_mediator.json")
+	manifestPath := filepath.Join(browser.NativeHostPath, config.NativeHostName+".json")
 	if err := os.WriteFile(manifestPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write manifest: %v", err)
 	}
