@@ -1,6 +1,6 @@
 # Maintainer: Shaun Lastra <shaun@lastra.us>
 pkgname=tabctl-git
-pkgver=1.2.0.r0.gunknown
+pkgver=1.2.0.r90.g3f45593
 pkgrel=1
 pkgdesc="Command-line browser tab controller with rofi integration for multiple window managers (git version)"
 arch=('x86_64')
@@ -20,6 +20,7 @@ optdepends=(
 )
 provides=('tabctl')
 conflicts=('tabctl')
+options=('!debug')
 source=("git+https://github.com/slastra/tabctl.git")
 sha256sums=('SKIP')
 install=tabctl.install
