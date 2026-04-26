@@ -71,18 +71,24 @@ tabctl list --browser Firefox
 tabctl list --browser Brave
 
 # Activate a tab (switches desktop if needed!)
-tabctl activate f.1.2        # Firefox tab
-tabctl activate c.1234.5678  # Chrome/Brave tab
+tabctl activate firefox.f.1.2          # Firefox tab
+tabctl activate brave.c.1234.5678      # Brave tab
+tabctl activate helium.c.1874583011.1874583012  # Helium tab
 
 # Close tabs
-tabctl close f.1.2 f.1.3
-echo "c.1234.5678" | tabctl close
+tabctl close firefox.f.1.2 firefox.f.1.3
+echo "brave.c.1234.5678" | tabctl close
 ```
 
 ### Tab ID Format
 
-- Firefox: `f.<window_id>.<tab_id>` (e.g., `f.1.2`)
-- Chrome/Brave: `c.<window_id>.<tab_id>` (e.g., `c.1874583011.1874583012`)
+Tab IDs are prefixed with the lowercased browser name so multiple
+browsers in the same family (e.g. Brave + Helium) stay distinguishable:
+
+- `<browser>.<family>.<window_id>.<tab_id>`
+- `<family>` is `f` for Firefox/Zen, `c` for Chromium-family browsers
+- Examples: `firefox.f.1.2`, `helium.c.1874583011.1874583012`,
+  `brave.c.999.42`, `chrome.c.123.45`
 
 ### Output Formats
 

@@ -1,10 +1,6 @@
 package mediator
 
-import (
-	"testing"
-
-	"github.com/tabctl/tabctl/internal/errors"
-)
+import "testing"
 
 func TestNewCommand(t *testing.T) {
 	args := map[string]interface{}{"tab_id": 123}
@@ -26,21 +22,5 @@ func TestNewCommandNilArgs(t *testing.T) {
 	}
 	if cmd.Args != nil {
 		t.Errorf("Args: got %v, want nil", cmd.Args)
-	}
-}
-
-func TestValidateCommand(t *testing.T) {
-	valid := &Command{Command: "list_tabs"}
-	if err := ValidateCommand(valid); err != nil {
-		t.Errorf("valid command returned error: %v", err)
-	}
-
-	empty := &Command{Command: ""}
-	err := ValidateCommand(empty)
-	if err == nil {
-		t.Error("empty command name should return error")
-	}
-	if _, ok := err.(*errors.ValidationError); !ok {
-		t.Errorf("expected *errors.ValidationError, got %T", err)
 	}
 }

@@ -93,45 +93,6 @@ func TestListTabsUnexpectedFormat(t *testing.T) {
 	}
 }
 
-func TestGetBrowser(t *testing.T) {
-	mock := &mockTransport{
-		recvMsg: map[string]interface{}{
-			"result": "Brave",
-		},
-	}
-
-	api := NewBrowserAPI(mock, "")
-	browser := api.GetBrowser()
-	if browser != "Brave" {
-		t.Errorf("expected Brave, got %q", browser)
-	}
-}
-
-func TestGetBrowserFallback(t *testing.T) {
-	mock := &mockTransport{
-		recvErr: fmt.Errorf("not connected"),
-	}
-
-	api := NewBrowserAPI(mock, "")
-	browser := api.GetBrowser()
-	if browser != "unknown" {
-		t.Errorf("expected unknown, got %q", browser)
-	}
-}
-
-func TestGetBrowserCached(t *testing.T) {
-	mock := &mockTransport{}
-	api := NewBrowserAPI(mock, "Firefox")
-	browser := api.GetBrowser()
-	if browser != "Firefox" {
-		t.Errorf("expected Firefox, got %q", browser)
-	}
-	// Should not have sent a command since browser was already set
-	if mock.lastSent != nil {
-		t.Error("should not query extension when browser is already known")
-	}
-}
-
 func TestActivateTab(t *testing.T) {
 	mock := &mockTransport{
 		recvMsg: map[string]interface{}{
@@ -178,21 +139,3 @@ func TestCloseTabs(t *testing.T) {
 	}
 }
 
-func TestGetText(t *testing.T) {
-	mock := &mockTransport{
-		recvMsg: map[string]interface{}{
-			"result": []interface{}{
-				"c.1.1\tPage Title\thttps://example.com\tSome text content",
-			},
-		},
-	}
-
-	api := NewBrowserAPI(mock, "chrome")
-	lines, err := api.GetText(`\n|\r`, " ")
-	if err != nil {
-		t.Fatalf("GetText failed: %v", err)
-	}
-	if len(lines) != 1 {
-		t.Fatalf("expected 1 line, got %d", len(lines))
-	}
-}

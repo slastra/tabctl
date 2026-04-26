@@ -17,10 +17,6 @@ class ChromeTabs {
     this._browser = chrome;
   }
 
-  runtime() {
-    return this._browser.runtime;
-  }
-
   list(queryInfo, onSuccess) {
     this._browser.tabs.query(queryInfo, (tabs) => {
       onSuccess(tabs || []);
@@ -34,44 +30,8 @@ class ChromeTabs {
     });
   }
 
-  query(queryInfo, onSuccess) {
-    if (queryInfo.hasOwnProperty('windowFocused')) {
-      let keepFocused = queryInfo['windowFocused']
-      delete queryInfo.windowFocused;
-      this._browser.tabs.query(queryInfo, tabs => {
-        Promise.all(tabs.map(tab => {
-          return new Promise(resolve => {
-            this._browser.windows.get(tab.windowId, { populate: false }, window => {
-              resolve(window.focused === keepFocused ? tab : null);
-            });
-          });
-        })).then(result => {
-          tabs = result.filter(tab => tab !== null);
-          onSuccess(tabs);
-        });
-      });
-    } else {
-      this._browser.tabs.query(queryInfo, onSuccess);
-    }
-  }
-
   close(tab_ids, onSuccess) {
     this._browser.tabs.remove(tab_ids, onSuccess);
-  }
-
-  move(tabId, moveOptions, onSuccess) {
-    this._browser.tabs.move(tabId, moveOptions, onSuccess);
-  }
-
-  update(tabId, options, onSuccess, onError) {
-    this._browser.tabs.update(tabId, options, tab => {
-      if (this._browser.runtime.lastError) {
-        let error = this._browser.runtime.lastError.message;
-        onError(error)
-      } else {
-        onSuccess(tab)
-      }
-    });
   }
 
   create(createOptions, onSuccess) {
@@ -80,52 +40,6 @@ class ChromeTabs {
     } else {
       this._browser.tabs.create(createOptions, onSuccess);
     }
-  }
-
-  getActive(onSuccess) {
-    this._browser.tabs.query({ active: true }, onSuccess);
-  }
-
-  getActiveScreenshot(onSuccess) {
-    let queryOptions = { active: true, lastFocusedWindow: true };
-    this._browser.tabs.query(queryOptions, (tabs) => {
-      let tab = tabs[0];
-      let windowId = tab.windowId;
-      let tabId = tab.id;
-      this._browser.tabs.captureVisibleTab(windowId, { format: 'png' }, function (data) {
-        const message = {
-          tab: tabId,
-          window: windowId,
-          data: data
-        };
-        onSuccess(message);
-      });
-    });
-  }
-
-  async runScript(tab_id, script, payload, onSuccess, onError) {
-    try {
-      const results = await this._browser.scripting.executeScript({
-        target: { tabId: tab_id },
-        func: (scriptCode) => {
-          try {
-            return eval(scriptCode);
-          } catch (e) {
-            return null;
-          }
-        },
-        args: [script]
-      });
-
-      const result = results && results[0] ? results[0].result : null;
-      onSuccess(result ? [result] : [], payload);
-    } catch (error) {
-      onError(error, payload);
-    }
-  }
-
-  getBrowserName() {
-    return "chrome/chromium";
   }
 }
 
@@ -186,14 +100,6 @@ connect();
 //   port, browserTabs, sendResponse, sendError, connect
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const GET_WORDS_SCRIPT = '[...new Set(document.documentElement.innerText.match(#match_regex#))].sort().join(#join_with#);';
-const GET_TEXT_SCRIPT = 'document.documentElement.innerText.replace(#delimiter_regex#, #replace_with#);';
-const GET_HTML_SCRIPT = 'document.documentElement.innerHTML.replace(#delimiter_regex#, #replace_with#);';
-
-// ============================================================================
 // HELPERS
 // ============================================================================
 
@@ -205,7 +111,9 @@ function makeTabId(windowId, tabId) {
 }
 
 /**
- * Extract numeric tab ID from full tab ID format (e.g., "c.1234.5678" -> 5678)
+ * Extract numeric tab ID from full tab ID format. The CLI may attach an
+ * additional browser-name segment (e.g. "helium.c.1234.5678"); we always
+ * take the last dot-separated component.
  */
 function parseTabId(fullTabId) {
   if (typeof fullTabId === 'string' && fullTabId.includes('.')) {
@@ -215,9 +123,6 @@ function parseTabId(fullTabId) {
   return parseInt(fullTabId, 10);
 }
 
-/**
- * Format a tab object into TSV format with all fields
- */
 function formatTabToTSV(tab) {
   return `${TAB_PREFIX}${tab.windowId}.${tab.id}\t${tab.title}\t${tab.url}\t${tab.index}\t${tab.active}\t${tab.pinned}`;
 }
@@ -227,35 +132,6 @@ function compareWindowIdTabId(tabA, tabB) {
     return tabA.windowId - tabB.windowId;
   }
   return tabA.index - tabB.index;
-}
-
-// ============================================================================
-// SCRIPT TEMPLATES
-// ============================================================================
-
-function getWordsScript(match_regex, join_with) {
-  return GET_WORDS_SCRIPT
-    .replace('#match_regex#', match_regex)
-    .replace('#join_with#', join_with);
-}
-
-function getTextScript(delimiter_regex, replace_with) {
-  return GET_TEXT_SCRIPT
-    .replace('#delimiter_regex#', delimiter_regex)
-    .replace('#replace_with#', replace_with);
-}
-
-function getHtmlScript(delimiter_regex, replace_with) {
-  return GET_HTML_SCRIPT
-    .replace('#delimiter_regex#', delimiter_regex)
-    .replace('#replace_with#', replace_with);
-}
-
-function listOr(list, default_value) {
-  if ((list.length == 1) && (list[0] == null)) {
-    return default_value;
-  }
-  return list;
 }
 
 // ============================================================================
@@ -279,59 +155,6 @@ function listTabsOnSuccess(tabs) {
 
 function listTabs() {
   browserTabs.list({}, listTabsOnSuccess);
-}
-
-function queryTabsOnSuccess(tabs) {
-  try {
-    if (!tabs || !Array.isArray(tabs)) {
-      sendResponse([]);
-      return;
-    }
-
-    tabs.sort(compareWindowIdTabId);
-    const lines = tabs.map(tab => formatTabToTSV(tab));
-    sendResponse(lines);
-  } catch (error) {
-    sendError('Failed to process query results');
-  }
-}
-
-function queryTabsOnFailure(error) {
-  sendResponse([]);
-}
-
-function queryTabs(query_info) {
-  try {
-    let query = atob(query_info)
-    query = JSON.parse(query)
-
-    const integerKeys = { 'windowId': null, 'index': null };
-    const booleanKeys = {
-      'active': null, 'pinned': null, 'audible': null, 'muted': null, 'highlighted': null,
-      'discarded': null, 'autoDiscardable': null, 'currentWindow': null, 'lastFocusedWindow': null, 'windowFocused': null
-    };
-
-    query = Object.entries(query).reduce((o, [k, v]) => {
-      if (booleanKeys.hasOwnProperty(k) && typeof v != 'boolean') {
-        if (v.toLowerCase() == 'true')
-          o[k] = true;
-        else if (v.toLowerCase() == 'false')
-          o[k] = false;
-        else
-          o[k] = v;
-      }
-      else if (integerKeys.hasOwnProperty(k) && typeof v != 'number')
-        o[k] = Number(v);
-      else
-        o[k] = v;
-      return o;
-    }, {})
-
-    browserTabs.query(query, queryTabsOnSuccess);
-  }
-  catch (error) {
-    queryTabsOnFailure(error);
-  }
 }
 
 function closeTabs(tab_ids) {
@@ -380,36 +203,6 @@ function openUrls(urls, window_id, first_result = "") {
   });
 }
 
-function createTab(url) {
-  browserTabs.create({ 'url': url },
-    (tab) => {
-      sendResponse([makeTabId(tab.windowId, tab.id)]);
-    });
-}
-
-function updateTabs(updates) {
-  if (updates.length == 0) {
-    sendResponse([]);
-    return;
-  }
-
-  var promises = [];
-  for (let update of updates) {
-    promises.push(new Promise((resolve, reject) => {
-      browserTabs.update(update.tab_id, update.properties,
-        (tab) => { resolve(makeTabId(tab.windowId, tab.id)) },
-        (error) => {
-          resolve()
-        }
-      );
-    }))
-  };
-  Promise.all(promises).then(result => {
-    const data = Array.prototype.concat(...result).filter(x => !!x)
-    sendResponse(data);
-  });
-}
-
 function activateTab(tab_id, focused) {
   const tabIdInt = parseTabId(tab_id);
 
@@ -420,123 +213,6 @@ function activateTab(tab_id, focused) {
 
   browserTabs.activate(tabIdInt, focused);
   sendResponse('OK');
-}
-
-function getActiveTabs() {
-  browserTabs.getActive(tabs => {
-    var result = tabs.map(tab => makeTabId(tab.windowId, tab.id)).toString()
-    sendResponse(result);
-  });
-}
-
-function getActiveScreenshot() {
-  browserTabs.getActiveScreenshot(data => {
-    sendResponse(data);
-  });
-}
-
-// ============================================================================
-// CONTENT EXTRACTION
-// ============================================================================
-
-function getWordsFromTabs(tabs, match_regex, join_with) {
-  var promises = [];
-  const script = getWordsScript(match_regex, join_with);
-
-  for (let tab of tabs) {
-    var promise = new Promise(
-      (resolve, reject) => browserTabs.runScript(tab.id, script, null,
-        (words, _payload) => {
-          words = listOr(words, []);
-          resolve(words);
-        },
-        (error, _payload) => resolve([])
-      )
-    );
-    promises.push(promise);
-  }
-  Promise.all(promises).then(
-    (all_words) => {
-      const result = Array.prototype.concat(...all_words);
-      sendResponse(result);
-    }
-  )
-}
-
-function getWords(tab_id, match_regex, join_with) {
-  if (tab_id == null) {
-    browserTabs.getActive(
-      (tabs) => getWordsFromTabs(tabs, match_regex, join_with),
-    );
-  } else {
-    const script = getWordsScript(match_regex, join_with);
-    browserTabs.runScript(tab_id, script, null,
-      (words, _payload) => sendResponse(listOr(words, [])),
-      (error, _payload) => { /* Could not run script */ },
-    );
-  }
-}
-
-function getTextOrHtmlFromTabs(tabs, scriptGetter, delimiter_regex, replace_with, onSuccess) {
-  var promises = [];
-  const script = scriptGetter(delimiter_regex, replace_with)
-
-  let lines = [];
-  for (let tab of tabs) {
-    var promise = new Promise(
-      (resolve, reject) => browserTabs.runScript(tab.id, script, tab,
-        (text, current_tab) => {
-          if (text && text[0]) {
-            resolve({ tab: current_tab, text: text[0] });
-          } else {
-            resolve({ tab: current_tab, text: '' });
-          }
-        },
-        (error, current_tab) => resolve({ tab: current_tab, text: '' })
-      )
-    );
-    promises.push(promise);
-  }
-
-  Promise.all(promises).then(onSuccess);
-}
-
-function getTextOnRunScriptSuccess(all_results) {
-  let lines = [];
-  for (let result of all_results) {
-    let tab = result['tab'];
-    let text = result['text'];
-    let line = makeTabId(tab.windowId, tab.id) + "\t" + tab.title + "\t" + tab.url + "\t" + text;
-    lines.push(line);
-  }
-  sendResponse(lines);
-}
-
-function getTextOnListSuccess(tabs, delimiter_regex, replace_with) {
-  tabs.sort(compareWindowIdTabId);
-  getTextOrHtmlFromTabs(tabs, getTextScript, delimiter_regex, replace_with, getTextOnRunScriptSuccess);
-}
-
-function getText(delimiter_regex, replace_with) {
-  browserTabs.list({ 'discarded': false },
-    (tabs) => getTextOnListSuccess(tabs, delimiter_regex, replace_with),
-  );
-}
-
-function getHtmlOnListSuccess(tabs, delimiter_regex, replace_with) {
-  tabs.sort(compareWindowIdTabId);
-  getTextOrHtmlFromTabs(tabs, getHtmlScript, delimiter_regex, replace_with, getTextOnRunScriptSuccess);
-}
-
-function getHtml(delimiter_regex, replace_with) {
-  browserTabs.list({ 'discarded': false },
-    (tabs) => getHtmlOnListSuccess(tabs, delimiter_regex, replace_with),
-  );
-}
-
-function getBrowserName() {
-  const name = browserTabs.getBrowserName();
-  sendResponse(name);
 }
 
 // ============================================================================
@@ -561,10 +237,6 @@ function handleMessage(command) {
     listTabs();
   }
 
-  else if (command['name'] == 'query_tabs') {
-    queryTabs(command['args']['query_info']);
-  }
-
   else if (command['name'] == 'close_tabs') {
     closeTabs(command['args']['tab_ids']);
   }
@@ -573,40 +245,8 @@ function handleMessage(command) {
     openUrls(command['args']['urls'], command['args']['window_id']);
   }
 
-  else if (command['name'] == 'new_tab') {
-    createTab(command['args']['url']);
-  }
-
-  else if (command['name'] == 'update_tabs') {
-    updateTabs(command['args']['updates']);
-  }
-
   else if (command['name'] == 'activate_tab') {
     activateTab(command['args']['tab_id'], !!command['args']['focused']);
-  }
-
-  else if (command['name'] == 'get_active_tabs') {
-    getActiveTabs();
-  }
-
-  else if (command['name'] == 'get_screenshot') {
-    getActiveScreenshot();
-  }
-
-  else if (command['name'] == 'get_words') {
-    getWords(command['args']['tabId'], command['args']['matchRegex'], command['args']['joinWith']);
-  }
-
-  else if (command['name'] == 'get_text') {
-    getText(command['args']['delimiterRegex'], command['args']['replaceWith']);
-  }
-
-  else if (command['name'] == 'get_html') {
-    getHtml(command['args']['delimiterRegex'], command['args']['replaceWith']);
-  }
-
-  else if (command['name'] == 'get_browser') {
-    getBrowserName();
   }
 }
 

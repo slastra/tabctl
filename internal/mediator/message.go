@@ -1,66 +1,20 @@
 package mediator
 
-import (
-	"github.com/tabctl/tabctl/internal/errors"
-)
-
-// Message types for browser extension communication
-
-// Command represents a command to send to the browser
+// Command represents a command sent to the browser extension over native
+// messaging.
 type Command struct {
 	Command string                 `json:"name"`
 	Args    map[string]interface{} `json:"args,omitempty"`
 }
 
-// Response represents a response from the browser
-type Response struct {
-	Result interface{} `json:"result,omitempty"`
-	Error  string      `json:"error,omitempty"`
-}
-
-// TabInfo represents information about a tab
-type TabInfo struct {
-	ID       int    `json:"id"`
-	WindowID int    `json:"windowId"`
-	Title    string `json:"title"`
-	URL      string `json:"url"`
-	Active   bool   `json:"active"`
-	Pinned   bool   `json:"pinned"`
-	Audible  bool   `json:"audible"`
-	Muted    bool   `json:"mutedInfo,omitempty"`
-	Index    int    `json:"index"`
-	Status   string `json:"status"`
-}
-
-// Common command names
+// Command names recognized by the browser extension.
 const (
-	CmdListTabs      = "list_tabs"
-	CmdQueryTabs     = "query_tabs"
-	CmdCloseTabs     = "close_tabs"
-	CmdActivateTab   = "activate_tab"
-	CmdOpenURLs      = "open_urls"
-	CmdUpdateTabs    = "update_tabs"
-	CmdNewTab        = "new_tab"
-	CmdGetActiveTabs = "get_active_tabs"
-	CmdGetScreenshot = "get_screenshot"
-	CmdGetWords      = "get_words"
-	CmdGetText       = "get_text"
-	CmdGetHTML       = "get_html"
-	CmdGetBrowser    = "get_browser"
+	CmdListTabs    = "list_tabs"
+	CmdCloseTabs   = "close_tabs"
+	CmdActivateTab = "activate_tab"
+	CmdOpenURLs    = "open_urls"
 )
 
-// NewCommand creates a new command
 func NewCommand(name string, args map[string]interface{}) *Command {
-	return &Command{
-		Command: name,
-		Args:    args,
-	}
-}
-
-// ValidateCommand validates a command
-func ValidateCommand(cmd *Command) error {
-	if cmd.Command == "" {
-		return errors.NewValidationError("command", cmd.Command, "command name is required")
-	}
-	return nil
+	return &Command{Command: name, Args: args}
 }
