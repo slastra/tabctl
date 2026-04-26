@@ -75,11 +75,6 @@ func (mc *multiClient) ActivateTab(tabID string, focused bool) error {
 	return client.ActivateTab(tabID, focused)
 }
 
-func (mc *multiClient) MoveTabs() error {
-	// TODO: Implement move tabs across all clients
-	return errors.New("not implemented yet")
-}
-
 func (mc *multiClient) UpdateTabs(updates []types.TabUpdate) error {
 	// Group updates by client prefix
 	clientUpdates := make(map[string][]types.TabUpdate)

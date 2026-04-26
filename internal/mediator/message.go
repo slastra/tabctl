@@ -38,7 +38,6 @@ const (
 	CmdQueryTabs     = "query_tabs"
 	CmdCloseTabs     = "close_tabs"
 	CmdActivateTab   = "activate_tab"
-	CmdMoveTabs      = "move_tabs"
 	CmdOpenURLs      = "open_urls"
 	CmdUpdateTabs    = "update_tabs"
 	CmdNewTab        = "new_tab"

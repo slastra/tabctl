@@ -118,11 +118,6 @@ func (c *DBusClient) ActivateTab(tabID string, focused bool) error {
 	return c.client.ActivateTab(ctx, c.browser, tabID, focused)
 }
 
-// MoveTabs moves tabs (not implemented)
-func (c *DBusClient) MoveTabs() error {
-	return errors.New("MoveTabs not implemented for D-Bus client")
-}
-
 // UpdateTabs updates tabs with the given properties
 func (c *DBusClient) UpdateTabs(updates []types.TabUpdate) error {
 	// For now, handle URL updates and properties
@@ -305,18 +300,4 @@ func (c *DBusClient) GetScreenshot() (*types.Screenshot, error) {
 // GetClient returns the underlying D-Bus client (for testing)
 func (c *DBusClient) GetClient() *dbus.Client {
 	return c.client
-}
-
-// DiscoverDBusBrowsers discovers all browsers available on D-Bus
-func DiscoverDBusBrowsers() ([]string, error) {
-	client, err := dbus.NewClient()
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
-
-	ctx, cancel := config.CommandContext()
-	defer cancel()
-
-	return client.DiscoverBrowsers(ctx)
 }

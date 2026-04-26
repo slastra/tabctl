@@ -101,24 +101,6 @@ func (r *BrowserAPI) QueryTabs(queryInfo string) ([]string, error) {
 	return nil, errors.NewTransportError("unexpected response format", nil)
 }
 
-// MoveTabs moves tabs according to the given triplets
-func (r *BrowserAPI) MoveTabs(moveTriplets string) (string, error) {
-	cmd := NewCommand(CmdMoveTabs, map[string]interface{}{
-		"move_triplets": moveTriplets,
-	})
-
-	result, err := r.sendCommand(cmd)
-	if err != nil {
-		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
-	}
-
-	if resultStr, ok := result.(string); ok {
-		return resultStr, nil
-	}
-
-	return "OK", nil
-}
-
 // OpenURLs opens the given URLs
 func (r *BrowserAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
 	args := map[string]interface{}{

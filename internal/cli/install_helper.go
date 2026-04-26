@@ -75,7 +75,6 @@ func getSupportedBrowsers() []BrowserInfo {
 		},
 	}
 
-	// TODO: Add platform-specific paths for Windows and macOS
 	return browsers
 }
 

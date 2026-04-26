@@ -10,7 +10,6 @@ type TabAPI interface {
 	ListTabs() ([]types.Tab, error)
 	CloseTabs(tabIDs []string) error
 	ActivateTab(tabID string, focused bool) error
-	MoveTabs() error
 
 	// Tab state operations
 	UpdateTabs(updates []types.TabUpdate) error
