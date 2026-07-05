@@ -37,10 +37,6 @@ Thumbs.db
 *.out
 coverage.txt
 
-# Planning documents
-port-plan.md
-dbus-plan.md
-
 # Test binaries
 dbus-test
 dbus-server-test

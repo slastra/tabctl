@@ -132,8 +132,6 @@ func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
 		return fmt.Errorf("failed to write manifest: %v", err)
 	}
 
-	// Note: Windows registry registration would be handled by the platform package if needed
-
 	return nil
 }
 
