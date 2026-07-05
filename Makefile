@@ -82,7 +82,7 @@ extensions: build-extensions ## Package browser extensions for release
 	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip . -x '.*'
 	@echo "Packaging Chrome extension (zip)..."
 	@cd extensions/chrome && zip -r ../../$(DIST_DIR)/tabctl-chrome-extension.zip . -x '.*'
-	@CHROMIUM=$$(which brave || which google-chrome || which chromium 2>/dev/null); \
+	@CHROMIUM=$$(which brave || which google-chrome || which google-chrome-stable || which chromium 2>/dev/null); \
 	if [ ! -f $(CHROME_KEY) ]; then \
 		echo "Skipping CRX: signing key not found at $(CHROME_KEY) (store zips do not require it)"; \
 	elif [ -z "$$CHROMIUM" ]; then \
