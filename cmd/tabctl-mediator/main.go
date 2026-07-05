@@ -15,17 +15,23 @@ import (
 
 func main() {
 	var logFile string
-	flag.StringVar(&logFile, "log", "/tmp/tabctl-mediator.log", "Log file path")
+	flag.StringVar(&logFile, "log", "", "Log file path (default: $XDG_STATE_HOME/tabctl/mediator-<browser>.log)")
 	flag.Parse()
 
 	browser := detectBrowser()
 
-	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		os.Exit(1)
+	if logFile == "" {
+		logFile = defaultLogPath(browser)
 	}
-	defer file.Close()
-	log.SetOutput(file)
+	if file, err := openLogFile(logFile); err != nil {
+		// Never die over logging: the browser owns our stdio, but stderr
+		// still reaches the browser's console/journal.
+		log.SetOutput(os.Stderr)
+		log.Printf("Cannot open log file %s: %v; logging to stderr", logFile, err)
+	} else {
+		defer file.Close()
+		log.SetOutput(file)
+	}
 
 	log.Printf("Starting mediator for %s (pid=%d)", browser, os.Getpid())
 
@@ -46,12 +52,35 @@ func main() {
 	case err := <-errChan:
 		if err != nil {
 			log.Printf("Mediator error: %v", err)
+		} else {
+			log.Printf("Browser disconnected, shutting down")
 		}
 	}
 
 	if err := m.Shutdown(); err != nil && !strings.Contains(err.Error(), "use of closed") {
 		log.Printf("Shutdown error: %v", err)
 	}
+}
+
+// defaultLogPath returns the per-browser log location under the XDG state
+// directory, so concurrent mediators don't interleave into one file.
+func defaultLogPath(browser string) string {
+	stateDir := os.Getenv("XDG_STATE_HOME")
+	if stateDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return filepath.Join(os.TempDir(), "tabctl-mediator.log")
+		}
+		stateDir = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(stateDir, "tabctl", fmt.Sprintf("mediator-%s.log", strings.ToLower(browser)))
+}
+
+func openLogFile(path string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 }
 
 // detectBrowser identifies which browser launched this mediator.

@@ -1,6 +1,8 @@
 package mediator
 
 import (
+	"errors"
+	"io"
 	"os"
 
 	"github.com/tabctl/tabctl/internal/dbus"
@@ -39,26 +41,28 @@ func NewMediator(browser string) (*Mediator, error) {
 	}, nil
 }
 
-// Run starts the D-Bus server and keeps running until the browser disconnects.
+// Run starts the D-Bus server and blocks until the browser disconnects.
+// A clean disconnect (EOF or closed transport) returns nil so callers can
+// unwind gracefully instead of exiting mid-goroutine.
 func (m *Mediator) Run() error {
 	// Start D-Bus server
 	if err := m.dbusServer.Start(); err != nil {
 		return err
 	}
 
-	// Monitor for browser disconnection (non-polling, immediate detection)
-	go func() {
-		<-m.transport.GetErrorChannel()
-		// Browser disconnected, exit cleanly
-		os.Exit(0)
-	}()
-
-	// Keep the main goroutine alive
-	select {}
+	// Block until the transport reports disconnection (non-polling)
+	err, ok := <-m.transport.GetErrorChannel()
+	if !ok || err == nil || errors.Is(err, io.EOF) {
+		return nil // browser disconnected cleanly
+	}
+	return err
 }
 
 // Shutdown gracefully shuts down the mediator.
 func (m *Mediator) Shutdown() error {
+	if m.transport != nil {
+		m.transport.Close()
+	}
 	if m.dbusServer != nil {
 		return m.dbusServer.Stop()
 	}

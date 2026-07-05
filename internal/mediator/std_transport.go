@@ -2,6 +2,7 @@ package mediator
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -14,12 +15,13 @@ import (
 
 // StdTransport implements Transport using channels for non-blocking EOF detection
 type StdTransport struct {
-	input       io.Reader
-	output      io.Writer
-	msgChan     chan map[string]interface{}
-	errChan     chan error
-	closeChan   chan struct{}
-	closeOnce   sync.Once
+	input     io.Reader
+	output    io.Writer
+	writeMu   sync.Mutex // serializes writes: readLoop's pong/health replies vs command sends
+	msgChan   chan map[string]interface{}
+	errChan   chan error
+	closeChan chan struct{}
+	closeOnce sync.Once
 }
 
 // NewStdTransport creates a new transport with automatic EOF detection
@@ -147,6 +149,9 @@ func (t *StdTransport) Send(message interface{}) error {
 		return errors.NewTransportError("failed to marshal message", err)
 	}
 
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+
 	// Write length header (4 bytes, little-endian)
 	length := uint32(len(jsonData))
 	if err := binary.Write(t.output, binary.LittleEndian, length); err != nil {
@@ -168,16 +173,35 @@ func (t *StdTransport) Send(message interface{}) error {
 	return nil
 }
 
-// Recv receives a message from the browser (non-blocking via channel)
-func (t *StdTransport) Recv() (map[string]interface{}, error) {
+// Recv receives a message from the browser, honoring context cancellation
+func (t *StdTransport) Recv(ctx context.Context) (map[string]interface{}, error) {
 	select {
 	case msg, ok := <-t.msgChan:
 		if !ok {
 			return nil, errors.NewTransportError("transport closed", nil)
 		}
 		return msg, nil
-	case err := <-t.errChan:
+	case err, ok := <-t.errChan:
+		if !ok || err == nil {
+			return nil, errors.NewTransportError("transport closed", nil)
+		}
 		return nil, err
+	case <-ctx.Done():
+		return nil, errors.NewTimeoutError("browser response", ctx.Err().Error())
+	}
+}
+
+// Drain discards any buffered messages without blocking
+func (t *StdTransport) Drain() {
+	for {
+		select {
+		case _, ok := <-t.msgChan:
+			if !ok {
+				return
+			}
+		default:
+			return
+		}
 	}
 }
 

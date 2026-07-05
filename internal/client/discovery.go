@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/dbus"
 )
@@ -11,14 +13,14 @@ type MediatorInfo struct {
 	Prefix  string
 }
 
-// DiscoverMediators discovers all available D-Bus mediators
-func DiscoverMediators() []MediatorInfo {
-	var mediators []MediatorInfo
-
+// DiscoverMediators discovers all available D-Bus mediators. An empty
+// result with a nil error means the bus is healthy but no mediator is
+// registered; errors indicate the bus itself could not be queried.
+func DiscoverMediators() ([]MediatorInfo, error) {
 	// Create D-Bus client
 	client, err := dbus.NewClient()
 	if err != nil {
-		return mediators
+		return nil, fmt.Errorf("cannot connect to D-Bus session bus: %w", err)
 	}
 	defer client.Close()
 
@@ -28,18 +30,17 @@ func DiscoverMediators() []MediatorInfo {
 	// Discover browsers on D-Bus
 	browsers, err := client.DiscoverBrowsers(ctx)
 	if err != nil {
-		return mediators
+		return nil, fmt.Errorf("D-Bus discovery failed: %w", err)
 	}
 
 	// Create MediatorInfo for each browser
+	mediators := make([]MediatorInfo, 0, len(browsers))
 	for _, browser := range browsers {
-		mediator := MediatorInfo{
+		mediators = append(mediators, MediatorInfo{
 			Browser: browser,
 			Prefix:  determinePrefixForBrowser(browser),
-		}
-
-		mediators = append(mediators, mediator)
+		})
 	}
 
-	return mediators
+	return mediators, nil
 }

@@ -35,14 +35,19 @@ func runCloseTabs(tabIDs []string) error {
 	}
 
 	// Create browser manager
-	bm := client.NewBrowserManager(targetBrowser)
+	bm, err := client.NewBrowserManager(targetBrowser)
+	if err != nil {
+		return err
+	}
 	defer bm.Close()
 
-	// Close tabs
-	if err := bm.CloseTabs(tabIDs); err != nil {
+	// Close tabs; report the count actually dispatched, not the input count
+	closed, err := bm.CloseTabs(tabIDs)
+	if closed > 0 {
+		fmt.Printf("Closed %d tab(s)\n", closed)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to close tabs: %w", err)
 	}
-
-	fmt.Printf("Closed %d tab(s)\n", len(tabIDs))
 	return nil
 }

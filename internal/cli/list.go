@@ -18,7 +18,10 @@ var listCmd = &cobra.Command{
 
 func runListTabs() error {
 	// Create browser manager to query browsers
-	bm := client.NewBrowserManager(targetBrowser)
+	bm, err := client.NewBrowserManager(targetBrowser)
+	if err != nil {
+		return err
+	}
 	defer bm.Close()
 
 	// List all tabs

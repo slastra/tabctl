@@ -9,6 +9,4 @@ type Tab struct {
 	Index    int    `json:"index"`
 	Active   bool   `json:"active"`
 	Pinned   bool   `json:"pinned"`
-	Audible  bool   `json:"audible"`
-	Muted    bool   `json:"muted"`
 }

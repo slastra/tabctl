@@ -61,10 +61,10 @@ func formatJSON(tabs []types.Tab) error {
 	return encoder.Encode(jsonTabs)
 }
 
-// formatSimple outputs just tab IDs and titles (good for rofi)
+// formatSimple outputs tab titles only. Display-only: the output cannot be
+// mapped back to tab IDs — use tsv or json for anything round-trippable.
 func formatSimple(tabs []types.Tab) error {
 	for _, tab := range tabs {
-		// Simple format: just title for display, ID can be parsed by rofi
 		fmt.Printf("%s\n", tab.Title)
 	}
 	return nil

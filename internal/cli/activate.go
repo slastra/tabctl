@@ -28,7 +28,10 @@ func init() {
 
 func runActivateTab(tabID string, focused bool) error {
 	// Create browser manager
-	bm := client.NewBrowserManager(targetBrowser)
+	bm, err := client.NewBrowserManager(targetBrowser)
+	if err != nil {
+		return err
+	}
 	defer bm.Close()
 
 	// Activate the tab

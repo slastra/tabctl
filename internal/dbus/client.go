@@ -47,6 +47,12 @@ func (c *Client) DiscoverBrowsers(ctx context.Context) ([]string, error) {
 		return nil, wrapTimeoutError(err, "DiscoverBrowsers")
 	}
 
+	return filterBrowserNames(names), nil
+}
+
+// filterBrowserNames extracts browser names from the bus name list,
+// skipping the base Manager name and anything outside our namespace.
+func filterBrowserNames(names []string) []string {
 	var browsers []string
 	prefix := ServiceNameBase + "."
 	for _, name := range names {
@@ -57,8 +63,7 @@ func (c *Client) DiscoverBrowsers(ctx context.Context) ([]string, error) {
 			}
 		}
 	}
-
-	return browsers, nil
+	return browsers
 }
 
 func (c *Client) ListTabs(ctx context.Context, browser string) ([]TabInfo, error) {

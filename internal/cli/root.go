@@ -38,7 +38,7 @@ func Execute() error {
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&outputFormat, "format", "tsv", "Output format: tsv, json, simple")
+	rootCmd.PersistentFlags().StringVar(&outputFormat, "format", "tsv", "Output format: tsv, json, simple (titles only, display-only)")
 	rootCmd.PersistentFlags().StringVar(&delimiter, "delimiter", "\t", "Field delimiter for TSV output")
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Suppress headers in output")
 	rootCmd.PersistentFlags().StringVar(&targetBrowser, "browser", "", "Target specific browser (e.g., Firefox, Brave)")
@@ -47,5 +47,6 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(closeCmd)
 	rootCmd.AddCommand(activateCmd)
+	rootCmd.AddCommand(openCmd)
 	rootCmd.AddCommand(installCmd)
 }

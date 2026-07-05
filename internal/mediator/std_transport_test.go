@@ -2,6 +2,7 @@ package mediator
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"io"
@@ -90,7 +91,7 @@ func TestRecvFraming(t *testing.T) {
 		writeNativeMessage(inputW, msg)
 	}()
 
-	received, err := transport.Recv()
+	received, err := transport.Recv(context.Background())
 	if err != nil {
 		t.Fatalf("Recv failed: %v", err)
 	}
@@ -110,7 +111,7 @@ func TestEOFDetection(t *testing.T) {
 	// Close the writer to trigger EOF
 	inputW.Close()
 
-	_, err := transport.Recv()
+	_, err := transport.Recv(context.Background())
 	if err == nil {
 		t.Fatal("expected error on EOF, got nil")
 	}
@@ -135,7 +136,7 @@ func TestMaxMessageSize(t *testing.T) {
 		inputW.Close()
 	}()
 
-	_, err := transport.Recv()
+	_, err := transport.Recv(context.Background())
 	if err == nil {
 		t.Fatal("expected error for oversized message, got nil")
 	}
@@ -163,7 +164,7 @@ func TestPingFiltering(t *testing.T) {
 	}()
 
 	// Recv should skip the ping and return the real message
-	received, err := transport.Recv()
+	received, err := transport.Recv(context.Background())
 	if err != nil {
 		t.Fatalf("Recv failed: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestHealthCheckFiltering(t *testing.T) {
 	}()
 
 	// Recv should skip the health check and return the real message
-	received, err := transport.Recv()
+	received, err := transport.Recv(context.Background())
 	if err != nil {
 		t.Fatalf("Recv failed: %v", err)
 	}
@@ -248,7 +249,7 @@ func TestMultipleMessages(t *testing.T) {
 	}()
 
 	for i := float64(1); i <= 3; i++ {
-		msg, err := transport.Recv()
+		msg, err := transport.Recv(context.Background())
 		if err != nil {
 			t.Fatalf("Recv %v failed: %v", i, err)
 		}

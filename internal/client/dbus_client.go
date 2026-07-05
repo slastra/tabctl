@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tabctl/tabctl/internal/config"
@@ -64,16 +65,31 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 	tabs := make([]types.Tab, len(tabInfos))
 	for i, info := range tabInfos {
 		tabs[i] = types.Tab{
-			ID:     c.prefix + info.ID,
-			Title:  info.Title,
-			URL:    info.URL,
-			Index:  int(info.Index),
-			Active: info.Active,
-			Pinned: info.Pinned,
+			ID:       c.prefix + info.ID,
+			Title:    info.Title,
+			URL:      info.URL,
+			WindowID: windowIDFromTabID(info.ID),
+			Index:    int(info.Index),
+			Active:   info.Active,
+			Pinned:   info.Pinned,
 		}
 	}
 
 	return tabs, nil
+}
+
+// windowIDFromTabID extracts the window ID embedded in the extension's tab
+// ID format "<family>.<window>.<tab>" (e.g. "c.1.123" -> 1).
+func windowIDFromTabID(id string) int {
+	parts := strings.Split(id, ".")
+	if len(parts) != 3 {
+		return 0
+	}
+	winID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	return winID
 }
 
 func (c *DBusClient) CloseTabs(tabIDs []string) error {
@@ -94,4 +110,15 @@ func (c *DBusClient) ActivateTab(tabID string, focused bool) error {
 	defer cancel()
 
 	return c.client.ActivateTab(ctx, c.browser, strings.TrimPrefix(tabID, c.prefix), focused)
+}
+
+func (c *DBusClient) OpenTab(url string) (string, error) {
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	id, err := c.client.OpenTab(ctx, c.browser, url)
+	if err != nil {
+		return "", fmt.Errorf("failed to open tab via D-Bus: %w", err)
+	}
+	return c.prefix + id, nil
 }

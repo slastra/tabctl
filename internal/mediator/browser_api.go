@@ -1,9 +1,12 @@
 package mediator
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"sync"
 
+	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/errors"
 )
 
@@ -12,6 +15,12 @@ import (
 type BrowserAPI struct {
 	transport Transport
 	browser   string
+
+	// mu serializes request/response pairs: godbus dispatches each D-Bus
+	// method call in its own goroutine, but the extension protocol has no
+	// request IDs, so replies can only be matched by strict ordering.
+	mu    sync.Mutex
+	stale bool // a Recv timed out; the next reply on the pipe may belong to it
 }
 
 func NewBrowserAPI(transport Transport, browser string) *BrowserAPI {
@@ -22,12 +31,28 @@ func NewBrowserAPI(transport Transport, browser string) *BrowserAPI {
 }
 
 func (r *BrowserAPI) sendCommand(cmd *Command) (interface{}, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.stale {
+		// A previous command timed out; its reply may still arrive and
+		// would be mistaken for ours. Best effort without protocol IDs.
+		r.transport.Drain()
+		r.stale = false
+	}
+
 	if err := r.transport.Send(cmd); err != nil {
 		return nil, err
 	}
 
-	response, err := r.transport.Recv()
+	ctx, cancel := context.WithTimeout(context.Background(), config.MediatorBrowserTimeout)
+	defer cancel()
+
+	response, err := r.transport.Recv(ctx)
 	if err != nil {
+		if _, isTimeout := err.(*errors.TimeoutError); isTimeout {
+			r.stale = true
+		}
 		return nil, err
 	}
 

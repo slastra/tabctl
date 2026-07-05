@@ -2,6 +2,8 @@
 // It handles communication between the browser extension and the CLI tool.
 package mediator
 
+import "context"
+
 // Message type constants for the native messaging protocol
 const (
 	// MsgTypePing is sent by the browser to check if the host is alive
@@ -23,9 +25,14 @@ const (
 type Transport interface {
 	// Send encodes and sends a message to the browser
 	Send(message interface{}) error
-	// Recv receives and decodes a message from the browser.
-	// It automatically handles ping/health check messages internally.
-	Recv() (map[string]interface{}, error)
+	// Recv receives and decodes a message from the browser, honoring
+	// context cancellation. It automatically handles ping/health check
+	// messages internally.
+	Recv(ctx context.Context) (map[string]interface{}, error)
+	// Drain discards any buffered messages without blocking. Used to
+	// clear stale responses after a Recv timeout, since the extension
+	// protocol has no request IDs to correlate replies.
+	Drain()
 	// Close cleans up any resources (no-op for stdio)
 	Close() error
 }
