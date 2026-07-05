@@ -6,7 +6,7 @@ Control browser tabs from the command line using D-Bus IPC.
 
 - **D-Bus Architecture** - Fast, reliable inter-process communication
 - **Multi-Browser Support** - Firefox, Zen, Chrome, Brave work simultaneously
-- **Core Commands** - List, close, and activate tabs across browsers
+- **Core Commands** - List, close, activate, and open tabs across browsers
 - **Desktop Switching** - Automatic window focus across virtual desktops
 - **Rofi Integration** - Quick tab switching with rofi scripts
 - **Multiple Output Formats** - TSV, JSON, simple
@@ -69,6 +69,11 @@ tabctl activate helium.c.1874583011.1874583012  # Helium tab
 # Close tabs
 tabctl close firefox.f.1.2 firefox.f.1.3
 echo "brave.c.1234.5678" | tabctl close
+
+# Open URLs in new tabs (prints the new tab IDs)
+tabctl open https://example.com https://github.com
+echo "https://example.com" | tabctl open
+tabctl open --browser Firefox https://example.com  # when multiple browsers are connected
 ```
 
 ### Tab ID Format
@@ -87,7 +92,7 @@ browsers in the same family (e.g. Brave + Helium) stay distinguishable:
 # JSON output
 tabctl list --format json
 
-# Simple format (just URLs)
+# Simple format (titles only — display-only, cannot be mapped back to tab IDs)
 tabctl list --format simple
 
 # Custom delimiter
@@ -102,14 +107,18 @@ tabctl list --no-headers
 Quick tab switching with rofi (includes desktop switching):
 
 ```bash
-# For X11 (wmctrl)
-./scripts/rofi-tabctl-wmctrl.sh
+# From a source checkout
+./scripts/rofi-tabctl-wmctrl.sh   # X11 (wmctrl)
+./scripts/rofi-tabctl-niri.sh     # Niri (Wayland)
 
-# For Niri (Wayland)
-./scripts/rofi-tabctl-niri.sh
+# AUR installs ship the scripts here
+/usr/share/tabctl/scripts/rofi-tabctl-wmctrl.sh
+/usr/share/tabctl/scripts/rofi-tabctl-niri.sh
 ```
 
-Add to your window manager keybindings for instant access.
+Add to your window manager keybindings for instant access. If
+`~/.config/rofi/browser-tabs.rasi` exists it is used as the rofi theme;
+otherwise the scripts fall back to your default theme.
 
 ## Architecture
 
@@ -121,10 +130,42 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 
 - **tabctl** - Command-line interface
 - **tabctl-mediator** - Native messaging host with D-Bus server
-- **Browser Extensions** - Firefox (v1.2.0) and Chrome (v1.2.0) extensions
+- **Browser Extensions** - Firefox (Manifest V2) and Chrome (Manifest V3) extensions
 - **D-Bus Services** - `dev.slastra.TabCtl.Firefox`, `dev.slastra.TabCtl.Brave`
 
 ## Troubleshooting
+
+### "No browsers found on D-Bus"
+
+The most common failure: the CLI reached the session bus, but no mediator
+is registered on it. In order of likelihood:
+
+1. **The extension isn't installed or is disabled.** The mediator is
+   launched by the browser through the extension — no extension, no
+   mediator. Install it from the store:
+   - Firefox / Zen: <https://addons.mozilla.org/en-US/firefox/addon/tabctl1/>
+   - Chrome / Chromium / Brave / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
+
+   Note: loading the extension as a *temporary add-on* (about:debugging)
+   only lasts until the browser restarts.
+2. **The browser wasn't restarted** after `tabctl install` wrote the
+   native messaging manifest.
+3. **The mediator crashed.** Check its log (see below).
+
+Diagnostics:
+```bash
+# Is a mediator registered on the bus?
+busctl --user list | grep -i tabctl
+
+# Is the mediator process alive?
+pgrep -af tabctl-mediator
+
+# What does the mediator log say?
+tail ~/.local/state/tabctl/mediator-*.log
+```
+
+A different error, `cannot connect to D-Bus session bus`, means the
+session bus itself is unreachable — check `DBUS_SESSION_BUS_ADDRESS`.
 
 ### Extension Not Connecting
 
@@ -147,14 +188,9 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
      /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep TabCtl
    ```
 
-2. Enable debug mode:
+2. Check logs (one file per browser):
    ```bash
-   TABCTL_DEBUG=1 tabctl list
-   ```
-
-3. Check logs:
-   ```bash
-   tail -f /tmp/tabctl-mediator.log
+   tail -f ~/.local/state/tabctl/mediator-firefox.log
    ```
 
 ## Building from Source

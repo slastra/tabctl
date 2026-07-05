@@ -48,7 +48,8 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 - Register on D-Bus with browser-specific name
 - Translate between native messaging and D-Bus protocols
 - Handle browser lifecycle (exit when browser closes)
-- Log errors to `/tmp/tabctl-mediator.log`
+- Log errors to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`
+  (default `~/.local/state/tabctl/`)
 
 **Communication:**
 - **Stdin/Stdout:** Native messaging with browser extension
@@ -198,11 +199,11 @@ Native messaging uses length-prefixed JSON:
 1. Browser launches mediator via native messaging
 2. Mediator detects browser from command-line args
 3. Registers D-Bus service with browser-specific name
-4. Logs startup to `/tmp/tabctl-mediator.log` (debug mode only)
+4. Logs startup to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`
 
 ### Mediator Shutdown
 1. Browser closes → stdin EOF
-2. Mediator detects EOF in polling loop
+2. Transport reader goroutine reports the disconnect on its error channel
 3. Unregisters from D-Bus
 4. Process exits cleanly
 
@@ -222,18 +223,22 @@ tabctl/
 ├── internal/
 │   ├── cli/                 # Command implementations
 │   ├── client/               # D-Bus client & browser manager
+│   ├── config/               # Timeouts & extension IDs
 │   ├── dbus/                 # D-Bus primitives
+│   ├── errors/               # Error types
 │   ├── mediator/             # Mediator core logic
-│   ├── platform/             # OS-specific code
 │   └── utils/                # Shared utilities
 ├── pkg/
 │   ├── api/                  # Public interfaces
 │   └── types/                # Shared types
 ├── extensions/
-│   ├── firefox/              # Firefox extension
-│   └── chrome/               # Chrome/Brave extension
+│   ├── firefox/              # Firefox extension (generated background.js)
+│   ├── chrome/               # Chrome/Brave extension (generated background.js)
+│   └── shared/               # Extension source (core.js + adapters)
 └── scripts/
-    └── rofi-wmctrl.sh        # X11 integration
+    ├── build-extensions.sh   # Assemble extensions from shared source
+    ├── rofi-tabctl-wmctrl.sh # X11 integration
+    └── rofi-tabctl-niri.sh   # Niri (Wayland) integration
 ```
 
 ## Error Handling

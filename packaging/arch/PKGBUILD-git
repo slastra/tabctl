@@ -9,14 +9,16 @@ license=('MIT')
 depends=('dbus')
 makedepends=('go' 'git')
 optdepends=(
-    'rofi: for rofi integration scripts'
-    'wmctrl: for X11 window management'
-    'xprop: for X11 window detection'
-    'hyprland: for Wayland/Hyprland support'
+    'rofi: rofi tab-switcher scripts'
+    'wmctrl: X11 window focusing (rofi-tabctl-wmctrl.sh)'
+    'niri: Wayland window focusing (rofi-tabctl-niri.sh)'
+    'jq: JSON parsing in rofi-tabctl-niri.sh'
+    'curl: favicon fetching in rofi-tabctl-niri.sh'
+    'imagemagick: favicon processing in rofi-tabctl-niri.sh'
+    'firefox: Firefox browser support'
     'brave-bin: Brave browser support'
     'chromium: Chromium browser support'
     'google-chrome: Chrome browser support'
-    'firefox: Firefox browser support'
 )
 provides=('tabctl')
 conflicts=('tabctl')

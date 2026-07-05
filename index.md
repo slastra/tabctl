@@ -68,13 +68,19 @@ Or install manually from source:
 tabctl list
 
 # Activate a specific tab
-tabctl activate f.1.234
+tabctl activate firefox.f.1.234
 
 # Close multiple tabs
-tabctl close f.1.234 f.1.235
+tabctl close firefox.f.1.234 firefox.f.1.235
 
-# Query tabs by title or URL
-tabctl query github
+# Open URLs in new tabs
+tabctl open https://github.com
+
+# Find tabs by title or URL
+tabctl list | grep -i github
+
+# JSON output for scripting
+tabctl list --format json
 ```
 
 ## Rofi Integration
@@ -83,11 +89,13 @@ TabCtl includes powerful [Rofi](https://github.com/davatorium/rofi) integration 
 
 ```bash
 # X11 with wmctrl
-scripts/rofi-wmctrl.sh
+scripts/rofi-tabctl-wmctrl.sh
 
-# Wayland with Hyprland
-scripts/rofi-hyprctl.sh
+# Wayland with Niri
+scripts/rofi-tabctl-niri.sh
 ```
+
+AUR installs ship both scripts in `/usr/share/tabctl/scripts/`.
 
 The Rofi integration provides instant fuzzy search across all tabs with automatic desktop/workspace switching when activating tabs.
 
@@ -105,7 +113,7 @@ TabCtl is open source software released under the MIT License. Contributions are
 
 - **Issues**: [GitHub Issues](https://github.com/slastra/tabctl/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/slastra/tabctl/discussions)
-- **Latest Release**: [v1.1.3](https://github.com/slastra/tabctl/releases/latest)
+- **Latest Release**: [GitHub Releases](https://github.com/slastra/tabctl/releases/latest)
 
 ## Acknowledgments
 
