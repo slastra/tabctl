@@ -1,6 +1,8 @@
 # Binaries (only in root directory)
 /tabctl
 /tabctl-mediator
+/tabctl-linux-*
+/tabctl-mediator-linux-*
 *.exe
 
 # Build output
