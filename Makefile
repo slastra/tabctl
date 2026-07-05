@@ -82,18 +82,16 @@ extensions: build-extensions ## Package browser extensions for release
 	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip . -x '.*'
 	@echo "Packaging Chrome extension (zip)..."
 	@cd extensions/chrome && zip -r ../../$(DIST_DIR)/tabctl-chrome-extension.zip . -x '.*'
-	@echo "Packaging Chrome extension (crx)..."
 	@CHROMIUM=$$(which brave || which google-chrome || which chromium 2>/dev/null); \
-	if [ -z "$$CHROMIUM" ]; then \
-		echo "Error: No Chromium-based browser found for CRX packaging"; \
-		exit 1; \
-	fi; \
 	if [ ! -f $(CHROME_KEY) ]; then \
-		echo "Error: Chrome signing key not found at $(CHROME_KEY)"; \
-		exit 1; \
-	fi; \
-	$$CHROMIUM --pack-extension=$$(pwd)/extensions/chrome --pack-extension-key=$$(pwd)/$(CHROME_KEY) 2>/dev/null; \
-	mv extensions/chrome.crx $(DIST_DIR)/tabctl-chrome-extension.crx
+		echo "Skipping CRX: signing key not found at $(CHROME_KEY) (store zips do not require it)"; \
+	elif [ -z "$$CHROMIUM" ]; then \
+		echo "Skipping CRX: no Chromium-based browser found (store zips do not require it)"; \
+	else \
+		echo "Packaging Chrome extension (crx)..."; \
+		$$CHROMIUM --pack-extension=$$(pwd)/extensions/chrome --pack-extension-key=$$(pwd)/$(CHROME_KEY) 2>/dev/null; \
+		mv extensions/chrome.crx $(DIST_DIR)/tabctl-chrome-extension.crx; \
+	fi
 	@echo "Extensions packaged in $(DIST_DIR)/"
 
 ##@ Cleanup

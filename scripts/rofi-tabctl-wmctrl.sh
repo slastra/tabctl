@@ -1,6 +1,11 @@
 #!/bin/bash
 # This script is used to activate a tab/window/workspace using rofi with tabctl
 
+# Use the custom theme only when the user has it; rofi's default otherwise
+ROFI_THEME="$HOME/.config/rofi/browser-tabs.rasi"
+theme_args=()
+[ -f "$ROFI_THEME" ] && theme_args=(-theme "$ROFI_THEME")
+
 sep="␞"
 # Get list of tabs: "Title: URL [separator] tab_id"
 tabs=$(tabctl list | awk -v sep="$sep" -F "\t" '{if ($2) print $2 ": " $3 sep $1}')
@@ -8,7 +13,7 @@ tabs=$(echo -e "New Window\n$tabs")
 
 # Show rofi menu and get selection
 selected=$(echo "$tabs" \
-    | rofi -dmenu -i -p "󱦞" -display-columns 1 -display-column-separator "$sep" -theme ~/.config/rofi/browser-tabs.rasi \
+    | rofi -dmenu -i -p "󱦞" -display-columns 1 -display-column-separator "$sep" "${theme_args[@]}" \
     | head -1)
 
 if [ "$selected" ]; then

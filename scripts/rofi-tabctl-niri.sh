@@ -137,17 +137,28 @@ if [ ${#missing_urls[@]} -gt 0 ]; then
   ) &
 fi
 
+# Use the custom theme only when the user has it; rofi's default otherwise
+ROFI_THEME="$HOME/.config/rofi/browser-tabs.rasi"
+theme_args=()
+[ -f "$ROFI_THEME" ] && theme_args=(-theme "$ROFI_THEME")
+
 # Show rofi menu
 echo "Showing rofi menu..." >>"$LOG_FILE"
 echo "Entries (first 500 chars): ${entries:0:500}" >>"$LOG_FILE"
-selected=$(echo -ne "$entries" | rofi -dmenu -i -p "󱦞 " -show-icons -theme ~/.config/rofi/browser-tabs.rasi)
+selected=$(echo -ne "$entries" | rofi -dmenu -i -p "󱦞 " -show-icons "${theme_args[@]}")
 
 echo "User selected: $selected" >>"$LOG_FILE"
 
 if [ -n "$selected" ]; then
   if [ "$selected" == "New Window" ]; then
-    echo "Launching new Firefox window" >>"$LOG_FILE"
-    firefox &
+    # Open new browser window (try common browsers)
+    for browser_cmd in brave firefox chromium google-chrome; do
+      if command -v "$browser_cmd" &>/dev/null; then
+        echo "Launching new $browser_cmd window" >>"$LOG_FILE"
+        "$browser_cmd" &
+        break
+      fi
+    done
     exit 0
   fi
 
