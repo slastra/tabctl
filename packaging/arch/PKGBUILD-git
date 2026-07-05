@@ -1,6 +1,6 @@
 # Maintainer: Shaun Lastra <shaun@lastra.us>
 pkgname=tabctl-git
-pkgver=1.2.0.r90.g3f45593
+pkgver=1.2.1.r100.g601e553
 pkgrel=1
 pkgdesc="Command-line browser tab controller with rofi integration for multiple window managers (git version)"
 arch=('x86_64')
@@ -29,7 +29,7 @@ install=tabctl.install
 
 pkgver() {
     cd "tabctl"
-    printf "1.2.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    printf "1.2.1.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
