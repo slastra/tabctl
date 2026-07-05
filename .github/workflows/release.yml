@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries (linux-amd64)
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/tabctl-linux-amd64 ./cmd/tabctl
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/tabctl-mediator-linux-amd64 ./cmd/tabctl-mediator
+
+      # Store zips only; CRX signing needs the private key, which stays offline
+      - name: Package extensions
+        run: |
+          ./scripts/build-extensions.sh
+          (cd extensions/firefox && zip -r ../../dist/tabctl-firefox-extension.zip . -x '.*')
+          (cd extensions/chrome && zip -r ../../dist/tabctl-chrome-extension.zip . -x '.*')
+
+      - name: Compute source tarball sha256 for AUR
+        run: |
+          sha=$(curl -sL "https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz" | sha256sum | cut -d' ' -f1)
+          echo "AUR sha256sums for ${GITHUB_REF_NAME}: $sha" | tee dist/aur-sha256.txt
+          echo "TARBALL_SHA256=$sha" >> "$GITHUB_ENV"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            AUR source tarball sha256: `${{ env.TARBALL_SHA256 }}`
