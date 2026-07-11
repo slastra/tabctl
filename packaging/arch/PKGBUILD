@@ -23,11 +23,7 @@ optdepends=(
 )
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
-# TODO: finalize at release time. The v2.0.0 tarball does not exist until the
-# tag is pushed; regenerate with:
-#   curl -sL https://github.com/slastra/tabctl/archive/v2.0.0.tar.gz | sha256sum
-# For local v2 testing before release, build the tabctl-git package instead.
-sha256sums=('SKIP')
+sha256sums=('bc4a9dba3c87a4e2f7e1e71388b0429cadbeaed0e9ae4e1591823d30b62bcd4a')
 install=tabctl.install
 
 build() {

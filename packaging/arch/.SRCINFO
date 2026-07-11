@@ -22,6 +22,6 @@ pkgbase = tabctl
 	optdepends = google-chrome: Chrome browser support
 	options = !debug
 	source = tabctl-2.0.0.tar.gz::https://github.com/slastra/tabctl/archive/v2.0.0.tar.gz
-	sha256sums = SKIP
+	sha256sums = bc4a9dba3c87a4e2f7e1e71388b0429cadbeaed0e9ae4e1591823d30b62bcd4a
 
 pkgname = tabctl
