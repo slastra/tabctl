@@ -20,13 +20,31 @@ function buildMockApi(kind, tabsImpl) {
   let onMessage = null;
   let onDisconnect = null;
 
+  // Controllable timers: record pending callbacks so tests can fire them.
+  const timers = new Map();
+  let timerSeq = 0;
+
+  // Captured toolbar-badge state.
+  const badge = { text: null, color: null, title: null };
+  const badgeApi = {
+    setBadgeText: (o) => { badge.text = o.text; },
+    setBadgeBackgroundColor: (o) => { badge.color = o.color; },
+    setTitle: (o) => { badge.title = o.title; },
+  };
+
   const port = {
     postMessage: (m) => sent.push(m),
     onMessage: { addListener: (fn) => { onMessage = fn; } },
     onDisconnect: { addListener: (fn) => { onDisconnect = fn; } },
     sent,
+    badge,
     emit: (m) => onMessage(m),
     disconnect: () => onDisconnect && onDisconnect(),
+    fireTimers: () => {
+      const fns = [...timers.values()];
+      timers.clear();
+      fns.forEach((fn) => fn());
+    },
   };
 
   const runtime = {
@@ -52,17 +70,19 @@ function buildMockApi(kind, tabsImpl) {
     Promise,
     Object,
     Array,
-    setTimeout: () => {}, // reconnect timer is inert in tests
+    setTimeout: (fn) => { const id = ++timerSeq; timers.set(id, fn); return id; },
+    clearTimeout: (id) => { timers.delete(id); },
   };
   if (kind === 'chrome') {
     g.chrome = {
       runtime,
       tabs: tabsApi,
       windows: windowsApi,
+      action: badgeApi,
       alarms: { create: () => {}, onAlarm: { addListener: () => {} } },
     };
   } else {
-    g.browser = { runtime, tabs: tabsApi, windows: windowsApi };
+    g.browser = { runtime, tabs: tabsApi, windows: windowsApi, browserAction: badgeApi };
   }
 
   return { g, port };
@@ -86,6 +106,34 @@ for (const kind of ['chrome', 'firefox']) {
     assert.ok(hello, 'expected a hello message');
     assert.equal(hello.params.protocolVersion, 2);
     assert.equal(hello.params.extensionVersion, '2.0.0');
+  });
+
+  test(`${kind}: no hello reply badges the icon out-of-date`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    // hello was sent on connect; no reply arrives. Fire the pending timer.
+    port.fireTimers();
+    assert.equal(port.badge.text, '!');
+    assert.match(port.badge.title, /out of date/i);
+  });
+
+  test(`${kind}: compatible hello reply leaves no badge`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.emit({ jsonrpc: '2.0', id: 0, result: { mediatorVersion: '2.0.0', protocolVersion: 2 } });
+    port.fireTimers(); // handshake done -> timeout must not badge
+    assert.notEqual(port.badge.text, '!');
+  });
+
+  test(`${kind}: protocol mismatch reply badges out-of-date`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.emit({ jsonrpc: '2.0', id: 0, result: { mediatorVersion: '9.0.0', protocolVersion: 99 } });
+    assert.equal(port.badge.text, '!');
+  });
+
+  test(`${kind}: disconnect cancels the handshake timer (no false badge)`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.disconnect(); // mediator absent, not out of date
+    port.fireTimers();
+    assert.notEqual(port.badge.text, '!');
   });
 
   test(`${kind}: list_tabs returns structured tabs`, async () => {

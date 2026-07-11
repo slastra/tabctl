@@ -17,6 +17,10 @@ const PROTOCOL_VERSION = 2;
 const EXTENSION_VERSION = runtimeApi.getManifest().version;
 const RPC_ERR_BROWSER = -32000;
 
+// --- Handshake / version guard ----------------------------------------------
+const HELLO_ID = 0;
+const HELLO_TIMEOUT_MS = 5000; // no hello reply within this = mediator too old
+
 // --- Reconnect / lifecycle --------------------------------------------------
 const RECONNECT_DELAY_BASE = 1000;   // 1s
 const RECONNECT_DELAY_MAX = 30000;   // 30s cap
@@ -25,6 +29,8 @@ const STABLE_CONNECTION_MS = 10000;  // a connection older than this resets back
 var port = null;
 var reconnectDelay = RECONNECT_DELAY_BASE;
 var lastConnectTime = 0;
+var handshakeDone = false;
+var helloTimer = null;
 
 // ============================================================================
 // HELPERS
@@ -127,8 +133,11 @@ function handleMessage(msg) {
 
   if (!msg || typeof msg !== 'object') { return; }
 
-  // A response to our hello (has result/error, no method) — nothing to do.
-  if (msg.method === undefined) { return; }
+  // The only response we receive is the reply to our hello handshake.
+  if (msg.method === undefined) {
+    if (msg.id === HELLO_ID && msg.result) { onHelloReply(msg.result); }
+    return;
+  }
 
   const id = msg.id;
   const params = msg.params || {};
@@ -147,12 +156,50 @@ function handleMessage(msg) {
 // ============================================================================
 
 function sendHello() {
+  handshakeDone = false;
+  clearTimeout(helloTimer);
+  // A live v2+ mediator answers hello immediately. If nothing comes back, the
+  // mediator predates this protocol — flag it so the user updates tabctl.
+  helloTimer = setTimeout(onHelloTimeout, HELLO_TIMEOUT_MS);
   postToMediator({
     jsonrpc: JSONRPC_VERSION,
-    id: 0,
+    id: HELLO_ID,
     method: 'hello',
     params: { extensionVersion: EXTENSION_VERSION, protocolVersion: PROTOCOL_VERSION },
   });
+}
+
+function onHelloReply(result) {
+  handshakeDone = true;
+  clearTimeout(helloTimer);
+  if (result && result.protocolVersion === PROTOCOL_VERSION) {
+    clearOutdatedBadge();
+  } else {
+    setOutdatedBadge(); // mediator answered, but speaks a different protocol
+  }
+}
+
+function onHelloTimeout() {
+  if (!handshakeDone) { setOutdatedBadge(); }
+}
+
+// setOutdatedBadge marks the toolbar icon so the user knows the tabctl
+// package is out of date relative to this extension.
+function setOutdatedBadge() {
+  if (typeof badgeApi === 'undefined' || !badgeApi) { return; }
+  try {
+    badgeApi.setBadgeText({ text: '!' });
+    badgeApi.setBadgeBackgroundColor({ color: '#cc0000' });
+    badgeApi.setTitle({ title: 'tabctl is out of date — update the tabctl package (e.g. yay -S tabctl)' });
+  } catch (e) { /* action API unavailable */ }
+}
+
+function clearOutdatedBadge() {
+  if (typeof badgeApi === 'undefined' || !badgeApi) { return; }
+  try {
+    badgeApi.setBadgeText({ text: '' });
+    badgeApi.setTitle({ title: 'tabctl' });
+  } catch (e) { /* action API unavailable */ }
 }
 
 function connect() {
@@ -170,6 +217,9 @@ function ensureConnected() {
 
 function handleDisconnect() {
   port = null;
+  // Cancel the pending handshake timer: a disconnect means the mediator is
+  // absent (not out of date), so don't badge on its behalf.
+  clearTimeout(helloTimer);
   // connectNative "succeeds" even when the host is missing; failure arrives as
   // an immediate disconnect. A connection that survived STABLE_CONNECTION_MS
   // was real, so reset backoff before scheduling.

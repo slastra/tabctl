@@ -141,9 +141,14 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 The native-messaging protocol is a JSON-RPC 2.0 subset with a version
 handshake. Because the extension updates through the browser stores and the
 `tabctl` binaries update through the AUR, the two can briefly be out of
-sync after a release — **update both to matching versions together**. Run
-`tabctl status` to check; a protocol mismatch is reported there and any tab
-command fails with a clear error rather than misbehaving silently.
+sync after a release — **update both to matching versions together**.
+
+Both sides surface a mismatch so it never fails silently:
+- If the **mediator** is newer, `tabctl status` reports it and any tab
+  command fails with a clear "update" error.
+- If the **extension** is newer (it handshakes but the mediator is too old
+  to answer), the extension shows a red **!** badge on its toolbar icon —
+  hover it for the "update the tabctl package" hint.
 
 ## Troubleshooting
 

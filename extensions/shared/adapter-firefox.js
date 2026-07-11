@@ -4,6 +4,7 @@
 // sendError. Listeners only at top level — core.js calls connect().
 
 const runtimeApi = browser.runtime;
+const badgeApi = browser.browserAction;
 
 const browserTabs = {
   list: (queryInfo) => browser.tabs.query(queryInfo),
