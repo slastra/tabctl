@@ -123,7 +123,9 @@ Quick tab switching with rofi (includes desktop switching):
 Add to your window manager keybindings for instant access. The niri and
 hyprland scripts also render per-tab favicons (needs `jq`, `curl`, and
 `imagemagick`). They use your default rofi theme — style them via your
-normal rofi config.
+normal rofi config. In the Hyprland script, **Enter** switches to the
+highlighted tab and **Ctrl+w** closes it (the menu reopens so you can clear
+several tabs in a row).
 
 ## Architecture
 

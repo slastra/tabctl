@@ -106,7 +106,7 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
    - Chrome/Brave: Focuses only if on current desktop
 7. Extension returns success to mediator
 8. Mediator returns success via D-Bus
-9. CLI reports: "Activated tab f.1.2"
+9. CLI reports: "Activated tab firefox.1.2"
 ```
 
 ## D-Bus Interface

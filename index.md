@@ -68,10 +68,10 @@ Or install manually from source:
 tabctl list
 
 # Activate a specific tab
-tabctl activate firefox.f.1.234
+tabctl activate firefox.1.234
 
 # Close multiple tabs
-tabctl close firefox.f.1.234 firefox.f.1.235
+tabctl close firefox.1.234 firefox.1.235
 
 # Open URLs in new tabs
 tabctl open https://github.com
@@ -81,6 +81,9 @@ tabctl list | grep -i github
 
 # JSON output for scripting
 tabctl list --format json
+
+# Check the extension and command-line tool are on matching versions
+tabctl status
 ```
 
 ## Rofi Integration
@@ -98,9 +101,9 @@ scripts/rofi-tabctl-niri.sh
 scripts/rofi-tabctl-hyprland.sh
 ```
 
-AUR installs ship both scripts in `/usr/share/tabctl/scripts/`.
+AUR installs ship all three scripts in `/usr/share/tabctl/scripts/`.
 
-The Rofi integration provides instant fuzzy search across all tabs with automatic desktop/workspace switching when activating tabs.
+The Rofi integration provides instant fuzzy search across all tabs with automatic desktop/workspace switching when activating tabs. In the Hyprland script, **Enter** switches to the highlighted tab and **Ctrl+w** closes it (reopening the menu so you can clear several at once).
 
 ## Documentation
 
