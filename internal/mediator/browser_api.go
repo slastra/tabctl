@@ -27,6 +27,10 @@ type BrowserAPI struct {
 	extensionProtocol int
 }
 
+// commandTimeout bounds how long sendCommand waits for a reply. It is a
+// variable (not the config constant directly) so tests can shorten it.
+var commandTimeout = config.MediatorBrowserTimeout
+
 // NewBrowserAPI creates a BrowserAPI and starts its dispatch loop.
 func NewBrowserAPI(transport Transport) *BrowserAPI {
 	r := &BrowserAPI{
@@ -129,7 +133,7 @@ func (r *BrowserAPI) sendCommand(method string, params map[string]interface{}) (
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.MediatorBrowserTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
 	select {
@@ -145,7 +149,7 @@ func (r *BrowserAPI) sendCommand(method string, params map[string]interface{}) (
 		if !helloReceived {
 			return nil, fmt.Errorf("no response from browser extension; it may be missing or incompatible — run `tabctl status`")
 		}
-		return nil, errors.NewTimeoutError("browser response", config.MediatorBrowserTimeout.String())
+		return nil, errors.NewTimeoutError("browser response", commandTimeout.String())
 	}
 }
 

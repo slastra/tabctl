@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/tabctl/tabctl/internal/client"
 )
@@ -24,10 +22,10 @@ func runListTabs() error {
 	}
 	defer bm.Close()
 
-	// List all tabs
+	// List all tabs (ListAllTabs already contextualizes its error)
 	tabs, err := bm.ListAllTabs()
 	if err != nil {
-		return fmt.Errorf("failed to list tabs: %w", err)
+		return err
 	}
 
 	// Use the format helper

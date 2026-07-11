@@ -3,10 +3,10 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, v2]
 
 jobs:
-  test:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,3 +17,27 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
       - run: go test -race ./internal/mediator/ ./internal/client/
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make build
+      - name: End-to-end (mediator + CLI over a private D-Bus session)
+        run: dbus-run-session -- python3 scripts/integration-test.py
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Bundles are generated, not committed — build them before testing.
+      - run: ./scripts/build-extensions.sh
+      - run: node --check extensions/chrome/background.js
+      - run: node --check extensions/firefox/background.js
+      - run: node --test extensions/test/*.test.mjs

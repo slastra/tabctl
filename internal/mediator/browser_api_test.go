@@ -202,6 +202,35 @@ func TestHelloHandshake(t *testing.T) {
 	}
 }
 
+// TestTimeoutDropsLateReply verifies a command that times out is cleaned up,
+// its late reply is dropped, and a subsequent command still works.
+func TestTimeoutDropsLateReply(t *testing.T) {
+	orig := commandTimeout
+	commandTimeout = 50 * time.Millisecond
+	defer func() { commandTimeout = orig }()
+
+	mock := newMockTransport(nil) // no auto-reply -> first call times out
+	api := NewBrowserAPI(mock)
+
+	if _, err := api.sendCommand(MethodListTabs, nil); err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+
+	// Inject the late reply for the timed-out request (id 1). It must be
+	// dropped, not delivered to the next caller.
+	mock.inChan <- rpcResult(1, "stale")
+
+	// A fresh command with a responder should still succeed cleanly.
+	mock.responder = echoResult("fresh")
+	raw, err := api.sendCommand(MethodListTabs, nil)
+	if err != nil {
+		t.Fatalf("second command failed: %v", err)
+	}
+	if string(raw) != `"fresh"` {
+		t.Errorf("got %s, want \"fresh\" (stale reply leaked)", raw)
+	}
+}
+
 // TestVersionGuard verifies an incompatible extension protocol fails commands
 // loudly.
 func TestVersionGuard(t *testing.T) {

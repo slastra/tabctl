@@ -56,7 +56,7 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 
 	infos, err := c.client.ListTabs(ctx, c.browser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tabs via D-Bus: %w", err)
+		return nil, err
 	}
 
 	tabs := make([]types.Tab, len(infos))

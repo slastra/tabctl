@@ -15,7 +15,7 @@ PLATFORMS=linux/amd64 linux/arm64
 # Chrome extension signing key
 CHROME_KEY=extensions/chrome-private-key.pem
 
-.PHONY: help build install clean test lint fmt deps dev release extensions build-extensions
+.PHONY: help build install clean test test-extensions test-integration lint fmt deps dev release extensions build-extensions
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -37,8 +37,18 @@ install: build ## Install the binary to $GOPATH/bin
 dev: ## Run in development mode (with hot reload if available)
 	go run ./cmd/tabctl
 
-test: ## Run tests
-	go test -v ./...
+test: ## Run Go and extension tests
+	go test ./...
+	go test -race ./internal/mediator/ ./internal/client/
+	$(MAKE) test-extensions
+
+test-extensions: build-extensions ## Run extension JS tests
+	node --check extensions/chrome/background.js
+	node --check extensions/firefox/background.js
+	node --test extensions/test/*.test.mjs
+
+test-integration: build ## Run the end-to-end integration test (needs dbus, python3)
+	dbus-run-session -- python3 scripts/integration-test.py
 
 lint: ## Run linter
 	golangci-lint run
