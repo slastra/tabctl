@@ -1,6 +1,6 @@
 # Maintainer: Shaun Lastra <shaun@lastra.us>
 pkgname=tabctl
-pkgver=1.2.1
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Command-line browser tab controller with rofi integration for multiple window managers"
 arch=('x86_64')
@@ -23,7 +23,11 @@ optdepends=(
 )
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/slastra/$pkgname/archive/v$pkgver.tar.gz")
-sha256sums=('8604d37a2feb316a61f3c9f6302e54620fea067e4f6e8d9ef2f3138fac4c5c2b')
+# TODO: finalize at release time. The v2.0.0 tarball does not exist until the
+# tag is pushed; regenerate with:
+#   curl -sL https://github.com/slastra/tabctl/archive/v2.0.0.tar.gz | sha256sum
+# For local v2 testing before release, build the tabctl-git package instead.
+sha256sums=('SKIP')
 install=tabctl.install
 
 build() {
