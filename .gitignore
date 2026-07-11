@@ -54,3 +54,7 @@ dbus-server-test
 # Firefox extension packages (exclude root level only)
 /*.xpi
 CLAUDE.md
+
+# Generated extension bundles (built by scripts/build-extensions.sh)
+extensions/chrome/background.js
+extensions/firefox/background.js
