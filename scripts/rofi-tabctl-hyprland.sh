@@ -170,18 +170,24 @@ if [ ${#missing_urls[@]} -gt 0 ]; then
   ) &
 fi
 
-# -format i returns the 0-based index into the input list; -1 for custom (unmatched) entries.
-selected_index=$(echo -ne "$entries" | rofi -dmenu -i -p "󱦞 " -show-icons -format i)
+# Enter switches to the tab; Ctrl+w closes it. rofi returns the selected index
+# on stdout (-format i) and signals the key via its exit code: 0 = Enter,
+# 10 = custom-1 (Ctrl+w), 1 = cancelled (Escape). Ctrl+w defaults to
+# kb-clear-line, so free that binding to give it to close.
+selected_index=$(echo -ne "$entries" | rofi -dmenu -i -p "󱦞 " -show-icons -format i \
+  -kb-clear-line "" -kb-custom-1 "Control+w" -mesg "Enter: switch • Ctrl+w: close")
+rofi_exit=$?
 
-echo "User selected index: $selected_index" >>"$LOG_FILE"
+echo "User selected index: $selected_index (rofi exit $rofi_exit)" >>"$LOG_FILE"
 
-if [ -z "$selected_index" ] || [ "$selected_index" = "-1" ]; then
+if [ "$rofi_exit" -eq 1 ] || [ -z "$selected_index" ] || [ "$selected_index" = "-1" ]; then
   echo "No selection made (user cancelled)" >>"$LOG_FILE"
   echo "=== Script ended at $(date) ===" >>"$LOG_FILE"
   exit 0
 fi
 
-# First n_browsers entries are "New <Browser> Window" launchers.
+# First n_browsers entries are "New <Browser> Window" launchers (Ctrl+q is a
+# no-op on those — there's nothing to close, so just launch).
 if [ "$selected_index" -lt "$n_browsers" ]; then
   cmd="${new_window_cmds[$selected_index]}"
   echo "Launching: $cmd" >>"$LOG_FILE"
@@ -192,6 +198,15 @@ fi
 
 tab_id="${tab_ids[$((selected_index - n_browsers))]}"
 [ -z "$tab_id" ] && exit 0
+
+# Ctrl+w (custom-1): close the tab, then reopen the menu so several can be
+# closed in a row. v2's `close` is synchronous, so the tab is gone before we
+# rebuild the list.
+if [ "$rofi_exit" -eq 10 ]; then
+  echo "Closing tab: $tab_id" >>"$LOG_FILE"
+  tabctl close "$tab_id"
+  exec "$0" "$@"
+fi
 
 tab_title=$(echo "$tabs_json" | jq -r --arg id "$tab_id" '.[] | select(.id == $id) | .title')
 tabctl activate "$tab_id"
