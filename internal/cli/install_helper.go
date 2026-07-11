@@ -17,8 +17,8 @@ type NativeMessagingManifest struct {
 	Description       string   `json:"description"`
 	Path              string   `json:"path"`
 	Type              string   `json:"type"`
-	AllowedOrigins    []string `json:"allowed_origins,omitempty"`    // Firefox
-	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // Chrome
+	AllowedOrigins    []string `json:"allowed_origins,omitempty"`    // Chrome/Chromium
+	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // Firefox/Zen
 }
 
 // BrowserInfo contains information about a browser
