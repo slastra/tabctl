@@ -5,21 +5,21 @@ import (
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
-	"github.com/godbus/dbus/v5/prop"
 )
 
 type Server struct {
-	conn       *dbus.Conn
-	browser    string
-	handler    BrowserHandler
-	props      *prop.Properties
+	conn    *dbus.Conn
+	browser string
+	handler BrowserHandler
 }
 
+// BrowserHandler is the mediator-side implementation the server adapts.
 type BrowserHandler interface {
 	ListTabs() ([]TabInfo, error)
-	ActivateTab(tabID string, focused bool) error
-	CloseTab(tabID string) error
-	OpenTab(url string) (string, error)
+	ActivateTab(tabID int32, focused bool) error
+	CloseTabs(tabIDs []int32) error
+	OpenTab(url string) (windowID, tabID int32, err error)
+	GetInfo() Info
 }
 
 func NewServer(browser string, handler BrowserHandler) (*Server, error) {
@@ -27,21 +27,13 @@ func NewServer(browser string, handler BrowserHandler) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to session bus: %w", err)
 	}
-
-	s := &Server{
-		conn:    conn,
-		browser: browser,
-		handler: handler,
-	}
-
-	return s, nil
+	return &Server{conn: conn, browser: browser, handler: handler}, nil
 }
 
 func (s *Server) Start() error {
 	serviceName := ServiceName(s.browser)
 	objectPath := ObjectPath(s.browser)
 
-	// Request service name
 	reply, err := s.conn.RequestName(serviceName, dbus.NameFlagDoNotQueue)
 	if err != nil {
 		return fmt.Errorf("failed to request name %s: %w", serviceName, err)
@@ -50,45 +42,22 @@ func (s *Server) Start() error {
 		return fmt.Errorf("name %s already taken", serviceName)
 	}
 
-	// Export methods
-	err = s.conn.Export(s, objectPath, InterfaceBrowser)
-	if err != nil {
+	if err := s.conn.Export(s, objectPath, InterfaceBrowser); err != nil {
 		return fmt.Errorf("failed to export object: %w", err)
 	}
 
-	// Export introspection
 	introspectionXML := generateIntrospection()
-	err = s.conn.Export(introspect.Introspectable(introspectionXML), objectPath,
-		"org.freedesktop.DBus.Introspectable")
-	if err != nil {
+	if err := s.conn.Export(introspect.Introspectable(introspectionXML), objectPath,
+		"org.freedesktop.DBus.Introspectable"); err != nil {
 		return fmt.Errorf("failed to export introspection: %w", err)
 	}
 
-	// Initialize properties (for future use)
-	propsSpec := map[string]map[string]*prop.Prop{
-		InterfaceBrowser: {
-			"BrowserName": {
-				Value:    s.browser,
-				Writable: false,
-				Emit:     prop.EmitTrue,
-			},
-		},
-	}
-
-	props, err := prop.Export(s.conn, objectPath, propsSpec)
-	if err != nil {
-		return fmt.Errorf("failed to export properties: %w", err)
-	}
-	s.props = props
-
-	// D-Bus server started successfully
 	return nil
 }
 
 func (s *Server) Stop() error {
 	if s.conn != nil {
-		serviceName := ServiceName(s.browser)
-		s.conn.ReleaseName(serviceName)
+		s.conn.ReleaseName(ServiceName(s.browser))
 		// Don't close the connection — dbus.SessionBus() returns a shared
 		// process-level singleton. Closing it would break other callers.
 	}
@@ -96,6 +65,7 @@ func (s *Server) Stop() error {
 }
 
 // D-Bus method implementations
+
 func (s *Server) ListTabs() ([]TabInfo, *dbus.Error) {
 	tabs, err := s.handler.ListTabs()
 	if err != nil {
@@ -104,28 +74,31 @@ func (s *Server) ListTabs() ([]TabInfo, *dbus.Error) {
 	return tabs, nil
 }
 
-func (s *Server) ActivateTab(tabID string, focused bool) (bool, *dbus.Error) {
-	err := s.handler.ActivateTab(tabID, focused)
-	if err != nil {
-		return false, dbus.MakeFailedError(err)
+func (s *Server) ActivateTab(tabID int32, focused bool) *dbus.Error {
+	if err := s.handler.ActivateTab(tabID, focused); err != nil {
+		return dbus.MakeFailedError(err)
 	}
-	return true, nil
+	return nil
 }
 
-func (s *Server) CloseTab(tabID string) (bool, *dbus.Error) {
-	err := s.handler.CloseTab(tabID)
-	if err != nil {
-		return false, dbus.MakeFailedError(err)
+func (s *Server) CloseTabs(tabIDs []int32) *dbus.Error {
+	if err := s.handler.CloseTabs(tabIDs); err != nil {
+		return dbus.MakeFailedError(err)
 	}
-	return true, nil
+	return nil
 }
 
-func (s *Server) OpenTab(url string) (string, *dbus.Error) {
-	tabID, err := s.handler.OpenTab(url)
+func (s *Server) OpenTab(url string) (int32, int32, *dbus.Error) {
+	windowID, tabID, err := s.handler.OpenTab(url)
 	if err != nil {
-		return "", dbus.MakeFailedError(err)
+		return 0, 0, dbus.MakeFailedError(err)
 	}
-	return tabID, nil
+	return windowID, tabID, nil
+}
+
+func (s *Server) GetInfo() (string, string, int32, int32, bool, *dbus.Error) {
+	i := s.handler.GetInfo()
+	return i.MediatorVersion, i.ExtensionVersion, i.MediatorProtocol, i.ExtensionProtocol, i.Compatible, nil
 }
 
 func generateIntrospection() string {
@@ -133,22 +106,27 @@ func generateIntrospection() string {
 <node>
 	<interface name="dev.slastra.TabCtl.Browser">
 		<method name="ListTabs">
-			<arg direction="out" type="a(sssibb)" />
+			<arg direction="out" type="a(iissibb)" />
 		</method>
 		<method name="ActivateTab">
-			<arg direction="in" type="s" name="tab_id" />
+			<arg direction="in" type="i" name="tab_id" />
 			<arg direction="in" type="b" name="focused" />
-			<arg direction="out" type="b" name="success" />
 		</method>
-		<method name="CloseTab">
-			<arg direction="in" type="s" name="tab_id" />
-			<arg direction="out" type="b" name="success" />
+		<method name="CloseTabs">
+			<arg direction="in" type="ai" name="tab_ids" />
 		</method>
 		<method name="OpenTab">
 			<arg direction="in" type="s" name="url" />
-			<arg direction="out" type="s" name="tab_id" />
+			<arg direction="out" type="i" name="window_id" />
+			<arg direction="out" type="i" name="tab_id" />
 		</method>
-		<property name="BrowserName" type="s" access="read" />
+		<method name="GetInfo">
+			<arg direction="out" type="s" name="mediator_version" />
+			<arg direction="out" type="s" name="extension_version" />
+			<arg direction="out" type="i" name="mediator_protocol" />
+			<arg direction="out" type="i" name="extension_protocol" />
+			<arg direction="out" type="b" name="compatible" />
+		</method>
 	</interface>
 </node>`
 }

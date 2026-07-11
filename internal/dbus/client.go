@@ -20,14 +20,12 @@ func NewClient() (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to session bus: %w", err)
 	}
-
 	return &Client{conn: conn}, nil
 }
 
 func (c *Client) Close() error {
-	// dbus.SessionBus() returns a shared process-level connection.
-	// Closing it would break all other callers. The connection is
-	// cleaned up automatically when the process exits.
+	// dbus.SessionBus() returns a shared process-level connection; closing
+	// it would break other callers. It is cleaned up on process exit.
 	return nil
 }
 
@@ -46,19 +44,17 @@ func (c *Client) DiscoverBrowsers(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, wrapTimeoutError(err, "DiscoverBrowsers")
 	}
-
 	return filterBrowserNames(names), nil
 }
 
-// filterBrowserNames extracts browser names from the bus name list,
-// skipping the base Manager name and anything outside our namespace.
+// filterBrowserNames extracts browser names from the bus name list.
 func filterBrowserNames(names []string) []string {
 	var browsers []string
 	prefix := ServiceNameBase + "."
 	for _, name := range names {
 		if strings.HasPrefix(name, prefix) {
 			browser := strings.TrimPrefix(name, prefix)
-			if browser != "" && browser != "Manager" {
+			if browser != "" {
 				browsers = append(browsers, browser)
 			}
 		}
@@ -66,68 +62,49 @@ func filterBrowserNames(names []string) []string {
 	return browsers
 }
 
+func (c *Client) obj(browser string) dbus.BusObject {
+	return c.conn.Object(ServiceName(browser), ObjectPath(browser))
+}
+
 func (c *Client) ListTabs(ctx context.Context, browser string) ([]TabInfo, error) {
-	serviceName := ServiceName(browser)
-	objectPath := ObjectPath(browser)
-
-	obj := c.conn.Object(serviceName, objectPath)
-
 	var tabs []TabInfo
-	err := obj.CallWithContext(ctx, InterfaceBrowser+".ListTabs", 0).Store(&tabs)
+	err := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".ListTabs", 0).Store(&tabs)
 	if err != nil {
 		return nil, wrapTimeoutError(err, "ListTabs")
 	}
-
 	return tabs, nil
 }
 
-func (c *Client) ActivateTab(ctx context.Context, browser, tabID string, focused bool) error {
-	serviceName := ServiceName(browser)
-	objectPath := ObjectPath(browser)
-
-	obj := c.conn.Object(serviceName, objectPath)
-
-	var success bool
-	err := obj.CallWithContext(ctx, InterfaceBrowser+".ActivateTab", 0, tabID, focused).Store(&success)
-	if err != nil {
-		return wrapTimeoutError(err, "ActivateTab")
+func (c *Client) ActivateTab(ctx context.Context, browser string, tabID int32, focused bool) error {
+	call := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".ActivateTab", 0, tabID, focused)
+	if call.Err != nil {
+		return wrapTimeoutError(call.Err, "ActivateTab")
 	}
-	if !success {
-		return fmt.Errorf("tab activation failed")
-	}
-
 	return nil
 }
 
-func (c *Client) CloseTab(ctx context.Context, browser, tabID string) error {
-	serviceName := ServiceName(browser)
-	objectPath := ObjectPath(browser)
-
-	obj := c.conn.Object(serviceName, objectPath)
-
-	var success bool
-	err := obj.CallWithContext(ctx, InterfaceBrowser+".CloseTab", 0, tabID).Store(&success)
-	if err != nil {
-		return wrapTimeoutError(err, "CloseTab")
+func (c *Client) CloseTabs(ctx context.Context, browser string, tabIDs []int32) error {
+	call := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".CloseTabs", 0, tabIDs)
+	if call.Err != nil {
+		return wrapTimeoutError(call.Err, "CloseTabs")
 	}
-	if !success {
-		return fmt.Errorf("tab close failed")
-	}
-
 	return nil
 }
 
-func (c *Client) OpenTab(ctx context.Context, browser, url string) (string, error) {
-	serviceName := ServiceName(browser)
-	objectPath := ObjectPath(browser)
-
-	obj := c.conn.Object(serviceName, objectPath)
-
-	var tabID string
-	err := obj.CallWithContext(ctx, InterfaceBrowser+".OpenTab", 0, url).Store(&tabID)
+func (c *Client) OpenTab(ctx context.Context, browser, url string) (windowID, tabID int32, err error) {
+	err = c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".OpenTab", 0, url).Store(&windowID, &tabID)
 	if err != nil {
-		return "", wrapTimeoutError(err, "OpenTab")
+		return 0, 0, wrapTimeoutError(err, "OpenTab")
 	}
+	return windowID, tabID, nil
+}
 
-	return tabID, nil
+func (c *Client) GetInfo(ctx context.Context, browser string) (Info, error) {
+	var i Info
+	err := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".GetInfo", 0).Store(
+		&i.MediatorVersion, &i.ExtensionVersion, &i.MediatorProtocol, &i.ExtensionProtocol, &i.Compatible)
+	if err != nil {
+		return Info{}, wrapTimeoutError(err, "GetInfo")
+	}
+	return i, nil
 }

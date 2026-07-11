@@ -9,18 +9,18 @@ import (
 	"github.com/tabctl/tabctl/pkg/types"
 )
 
-// fakeClient implements api.Client for routing tests
+// fakeClient implements api.Client for routing tests.
 type fakeClient struct {
 	prefix    string
 	closeErr  error
-	closed    [][]string
-	activated []string
+	closed    [][]int
+	activated []int
 	opened    []string
 }
 
 func (f *fakeClient) ListTabs() ([]types.Tab, error) { return nil, nil }
 
-func (f *fakeClient) CloseTabs(tabIDs []string) error {
+func (f *fakeClient) CloseTabs(tabIDs []int) error {
 	if f.closeErr != nil {
 		return f.closeErr
 	}
@@ -28,18 +28,23 @@ func (f *fakeClient) CloseTabs(tabIDs []string) error {
 	return nil
 }
 
-func (f *fakeClient) ActivateTab(tabID string, focused bool) error {
+func (f *fakeClient) ActivateTab(tabID int, focused bool) error {
 	f.activated = append(f.activated, tabID)
 	return nil
 }
 
-func (f *fakeClient) OpenTab(url string) (string, error) {
+func (f *fakeClient) OpenTab(url string) (types.Tab, error) {
 	f.opened = append(f.opened, url)
-	return f.prefix + "1.100", nil
+	return types.Tab{ID: f.prefix + "1.100", URL: url}, nil
 }
 
 func (f *fakeClient) GetPrefix() string { return f.prefix }
-func (f *fakeClient) Close() error      { return nil }
+
+func (f *fakeClient) Info() (api.Info, error) {
+	return api.Info{Browser: strings.TrimSuffix(f.prefix, ".")}, nil
+}
+
+func (f *fakeClient) Close() error { return nil }
 
 func TestCloseTabsRouting(t *testing.T) {
 	firefox := &fakeClient{prefix: "firefox."}
@@ -56,8 +61,8 @@ func TestCloseTabsRouting(t *testing.T) {
 	if len(firefox.closed) != 1 || len(firefox.closed[0]) != 2 {
 		t.Errorf("firefox received %v, want 2 tabs in one call", firefox.closed)
 	}
-	if len(chrome.closed) != 1 || chrome.closed[0][0] != "chrome.2.3" {
-		t.Errorf("chrome received %v, want [chrome.2.3]", chrome.closed)
+	if len(chrome.closed) != 1 || chrome.closed[0][0] != 3 {
+		t.Errorf("chrome received %v, want [3]", chrome.closed)
 	}
 }
 
@@ -69,8 +74,8 @@ func TestCloseTabsUnroutable(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unroutable tab ID, got nil")
 	}
-	if !strings.Contains(err.Error(), "zen.1.9") {
-		t.Errorf("error should name the unroutable ID, got: %v", err)
+	if !strings.Contains(err.Error(), "zen.") {
+		t.Errorf("error should name the unroutable prefix, got: %v", err)
 	}
 	if closed != 1 {
 		t.Errorf("closed count: got %d, want 1 (only the routable tab)", closed)
@@ -99,8 +104,8 @@ func TestActivateTabRouting(t *testing.T) {
 	if err := bm.ActivateTab("chrome.1.5", true); err != nil {
 		t.Fatalf("ActivateTab failed: %v", err)
 	}
-	if len(chrome.activated) != 1 || chrome.activated[0] != "chrome.1.5" {
-		t.Errorf("chrome activated %v, want [chrome.1.5]", chrome.activated)
+	if len(chrome.activated) != 1 || chrome.activated[0] != 5 {
+		t.Errorf("chrome activated %v, want [5]", chrome.activated)
 	}
 	if len(firefox.activated) != 0 {
 		t.Errorf("firefox should not have been called, got %v", firefox.activated)
@@ -166,7 +171,7 @@ func TestNewBrowserManagerErrors(t *testing.T) {
 
 	t.Run("target browser not registered", func(t *testing.T) {
 		discoverMediators = func() ([]MediatorInfo, error) {
-			return []MediatorInfo{{Browser: "Firefox", Prefix: "firefox."}}, nil
+			return []MediatorInfo{{Browser: "Firefox"}}, nil
 		}
 		_, err := NewBrowserManager("Chrome")
 		if err == nil || !strings.Contains(err.Error(), "Firefox") {
@@ -176,7 +181,7 @@ func TestNewBrowserManagerErrors(t *testing.T) {
 
 	t.Run("client connect failure surfaces", func(t *testing.T) {
 		discoverMediators = func() ([]MediatorInfo, error) {
-			return []MediatorInfo{{Browser: "Firefox", Prefix: "firefox."}}, nil
+			return []MediatorInfo{{Browser: "Firefox"}}, nil
 		}
 		newDBusClient = func(browser string) (api.Client, error) {
 			return nil, fmt.Errorf("connect refused")

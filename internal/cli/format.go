@@ -32,33 +32,9 @@ func formatTSV(tabs []types.Tab) error {
 
 // formatJSON outputs tabs as JSON
 func formatJSON(tabs []types.Tab) error {
-	// Convert to a format with string IDs for compatibility
-	type JSONTab struct {
-		ID       string `json:"id"`
-		Title    string `json:"title"`
-		URL      string `json:"url"`
-		WindowID int    `json:"windowId"`
-		Index    int    `json:"index"`
-		Active   bool   `json:"active"`
-		Pinned   bool   `json:"pinned"`
-	}
-
-	jsonTabs := make([]JSONTab, len(tabs))
-	for i, tab := range tabs {
-		jsonTabs[i] = JSONTab{
-			ID:       tab.ID,
-			Title:    tab.Title,
-			URL:      tab.URL,
-			WindowID: tab.WindowID,
-			Index:    tab.Index,
-			Active:   tab.Active,
-			Pinned:   tab.Pinned,
-		}
-	}
-
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(jsonTabs)
+	return encoder.Encode(tabs)
 }
 
 // formatSimple outputs tab titles only. Display-only: the output cannot be

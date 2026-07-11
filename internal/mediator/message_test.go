@@ -1,26 +1,39 @@
 package mediator
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
-func TestNewCommand(t *testing.T) {
-	args := map[string]interface{}{"tab_id": 123}
-	cmd := NewCommand("activate_tab", args)
+func TestNewRequest(t *testing.T) {
+	req := newRequest(7, MethodActivateTab, map[string]interface{}{"tab_id": 123})
 
-	if cmd.Command != "activate_tab" {
-		t.Errorf("Command: got %q, want %q", cmd.Command, "activate_tab")
+	if req.JSONRPC != JSONRPCVersion {
+		t.Errorf("JSONRPC: got %q, want %q", req.JSONRPC, JSONRPCVersion)
 	}
-	if cmd.Args["tab_id"] != 123 {
-		t.Errorf("Args[tab_id]: got %v, want 123", cmd.Args["tab_id"])
+	if req.ID != 7 || req.Method != MethodActivateTab {
+		t.Errorf("unexpected request: %+v", req)
+	}
+	if req.Params["tab_id"] != 123 {
+		t.Errorf("Params[tab_id]: got %v, want 123", req.Params["tab_id"])
 	}
 }
 
-func TestNewCommandNilArgs(t *testing.T) {
-	cmd := NewCommand("list_tabs", nil)
-
-	if cmd.Command != "list_tabs" {
-		t.Errorf("Command: got %q, want %q", cmd.Command, "list_tabs")
+func TestRequestMarshalsJSONRPC(t *testing.T) {
+	req := newRequest(1, MethodListTabs, nil)
+	b, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
 	}
-	if cmd.Args != nil {
-		t.Errorf("Args: got %v, want nil", cmd.Args)
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if m["jsonrpc"] != "2.0" || m["method"] != "list_tabs" {
+		t.Errorf("unexpected wire form: %s", b)
+	}
+	// params omitted when nil
+	if _, ok := m["params"]; ok {
+		t.Errorf("params should be omitted when nil: %s", b)
 	}
 }

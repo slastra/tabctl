@@ -2,133 +2,213 @@ package mediator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/tabctl/tabctl/internal/config"
 	"github.com/tabctl/tabctl/internal/errors"
 )
 
-// BrowserAPI handles communication with the browser extension over the
-// native-messaging transport.
+// BrowserAPI drives the browser extension over the native-messaging
+// transport, correlating requests and responses by id. Concurrent D-Bus
+// handler goroutines can each have a command in flight; replies are routed
+// back to the right caller by the dispatch loop.
 type BrowserAPI struct {
 	transport Transport
-	browser   string
 
-	// mu serializes request/response pairs: godbus dispatches each D-Bus
-	// method call in its own goroutine, but the extension protocol has no
-	// request IDs, so replies can only be matched by strict ordering.
-	mu    sync.Mutex
-	stale bool // a Recv timed out; the next reply on the pipe may belong to it
+	mu      sync.Mutex
+	nextID  int
+	pending map[int]chan *Response
+
+	infoMu            sync.RWMutex
+	helloReceived     bool
+	extensionVersion  string
+	extensionProtocol int
 }
 
-func NewBrowserAPI(transport Transport, browser string) *BrowserAPI {
-	return &BrowserAPI{
+// NewBrowserAPI creates a BrowserAPI and starts its dispatch loop.
+func NewBrowserAPI(transport Transport) *BrowserAPI {
+	r := &BrowserAPI{
 		transport: transport,
-		browser:   browser,
+		pending:   make(map[int]chan *Response),
+	}
+	go r.dispatch()
+	return r
+}
+
+// dispatch routes each incoming message: responses go to their waiting
+// caller by id; requests (the hello handshake) are handled inline.
+func (r *BrowserAPI) dispatch() {
+	for raw := range r.transport.Incoming() {
+		var probe struct {
+			Method string          `json:"method"`
+			ID     int             `json:"id"`
+			Result json.RawMessage `json:"result"`
+			Error  *RPCError       `json:"error"`
+		}
+		if err := json.Unmarshal(raw, &probe); err != nil {
+			continue // ignore malformed frames
+		}
+
+		if probe.Method != "" {
+			r.handleRequest(probe.Method, raw)
+			continue
+		}
+
+		// Response: hand off to the waiter registered for this id.
+		r.mu.Lock()
+		ch, ok := r.pending[probe.ID]
+		if ok {
+			delete(r.pending, probe.ID)
+		}
+		r.mu.Unlock()
+		if ok {
+			ch <- &Response{ID: probe.ID, Result: probe.Result, Error: probe.Error}
+		}
+		// Unmatched (late/unknown) responses are dropped.
 	}
 }
 
-func (r *BrowserAPI) sendCommand(cmd *Command) (interface{}, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.stale {
-		// A previous command timed out; its reply may still arrive and
-		// would be mistaken for ours. Best effort without protocol IDs.
-		r.transport.Drain()
-		r.stale = false
+// handleRequest processes an extension-initiated request. The only one we
+// expect is the connect-time hello handshake.
+func (r *BrowserAPI) handleRequest(method string, raw json.RawMessage) {
+	if method != MethodHello {
+		return
+	}
+	var req struct {
+		ID     int         `json:"id"`
+		Params HelloParams `json:"params"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return
 	}
 
-	if err := r.transport.Send(cmd); err != nil {
+	r.infoMu.Lock()
+	r.helloReceived = true
+	r.extensionVersion = req.Params.ExtensionVersion
+	r.extensionProtocol = req.Params.ProtocolVersion
+	r.infoMu.Unlock()
+
+	result, _ := json.Marshal(HelloResult{
+		MediatorVersion: config.Version,
+		ProtocolVersion: ProtocolVersion,
+	})
+	_ = r.transport.Send(&Response{
+		JSONRPC: JSONRPCVersion,
+		ID:      req.ID,
+		Result:  result,
+	})
+}
+
+// sendCommand sends a request and waits for its correlated response.
+func (r *BrowserAPI) sendCommand(method string, params map[string]interface{}) (json.RawMessage, error) {
+	// Version guard: if the extension announced an incompatible protocol,
+	// fail loud rather than let commands misbehave.
+	r.infoMu.RLock()
+	helloReceived := r.helloReceived
+	extProto := r.extensionProtocol
+	r.infoMu.RUnlock()
+	if helloReceived && extProto != ProtocolVersion {
+		return nil, fmt.Errorf(
+			"browser extension speaks protocol v%d but this mediator speaks v%d — update tabctl and the extension to matching versions",
+			extProto, ProtocolVersion)
+	}
+
+	r.mu.Lock()
+	r.nextID++
+	id := r.nextID
+	ch := make(chan *Response, 1)
+	r.pending[id] = ch
+	r.mu.Unlock()
+
+	if err := r.transport.Send(newRequest(id, method, params)); err != nil {
+		r.mu.Lock()
+		delete(r.pending, id)
+		r.mu.Unlock()
 		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.MediatorBrowserTimeout)
 	defer cancel()
 
-	response, err := r.transport.Recv(ctx)
-	if err != nil {
-		if _, isTimeout := err.(*errors.TimeoutError); isTimeout {
-			r.stale = true
+	select {
+	case resp := <-ch:
+		if resp.Error != nil {
+			return nil, fmt.Errorf("browser error: %s", resp.Error.Message)
 		}
-		return nil, err
+		return resp.Result, nil
+	case <-ctx.Done():
+		r.mu.Lock()
+		delete(r.pending, id)
+		r.mu.Unlock()
+		if !helloReceived {
+			return nil, fmt.Errorf("no response from browser extension; it may be missing or incompatible — run `tabctl status`")
+		}
+		return nil, errors.NewTimeoutError("browser response", config.MediatorBrowserTimeout.String())
 	}
-
-	if errMsg, ok := response["error"].(string); ok && errMsg != "" {
-		return nil, fmt.Errorf("browser error: %s", errMsg)
-	}
-
-	return response["result"], nil
 }
 
-// ListTabs returns a list of TSV-formatted tab descriptors.
-func (r *BrowserAPI) ListTabs() ([]string, error) {
-	result, err := r.sendCommand(NewCommand(CmdListTabs, nil))
-	if err != nil {
-		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
-	}
-
-	tabs, ok := result.([]interface{})
-	if !ok {
-		return nil, errors.NewTransportError("unexpected response format", nil)
-	}
-
-	lines := make([]string, 0, len(tabs))
-	for _, tab := range tabs {
-		if s, ok := tab.(string); ok {
-			lines = append(lines, s)
-		}
-	}
-	return lines, nil
-}
-
-// OpenURLs opens new tabs at the given URLs and returns their IDs.
-func (r *BrowserAPI) OpenURLs(urls []string, windowID *int) ([]string, error) {
-	args := map[string]interface{}{"urls": urls}
-	if windowID != nil {
-		args["window_id"] = *windowID
-	}
-
-	result, err := r.sendCommand(NewCommand(CmdOpenURLs, args))
+// ListTabs returns the browser's tabs as structured data.
+func (r *BrowserAPI) ListTabs() ([]TabData, error) {
+	raw, err := r.sendCommand(MethodListTabs, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
-
-	ids, ok := result.([]interface{})
-	if !ok {
-		return nil, errors.NewTransportError("unexpected response format", nil)
+	var tabs []TabData
+	if err := json.Unmarshal(raw, &tabs); err != nil {
+		return nil, errors.NewTransportError("unexpected list_tabs response", err)
 	}
-
-	out := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if s, ok := id.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out, nil
+	return tabs, nil
 }
 
-// CloseTabs closes tabs identified by a comma-separated ID list.
-func (r *BrowserAPI) CloseTabs(tabIDs string) (string, error) {
-	cmd := NewCommand(CmdCloseTabs, map[string]interface{}{
-		"tab_ids": strings.Split(tabIDs, ","),
-	})
-	if _, err := r.sendCommand(cmd); err != nil {
-		return "", fmt.Errorf("failed to communicate with browser extension: %w", err)
+// CloseTabs closes the tabs with the given browser-assigned numeric IDs.
+func (r *BrowserAPI) CloseTabs(tabIDs []int) error {
+	if _, err := r.sendCommand(MethodCloseTabs, map[string]interface{}{"tab_ids": tabIDs}); err != nil {
+		return fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
-	return "OK", nil
+	return nil
 }
 
 // ActivateTab activates the tab with the given numeric ID.
 func (r *BrowserAPI) ActivateTab(tabID int, focused bool) error {
-	cmd := NewCommand(CmdActivateTab, map[string]interface{}{
-		"tab_id":  tabID,
-		"focused": focused,
-	})
-	if _, err := r.sendCommand(cmd); err != nil {
+	if _, err := r.sendCommand(MethodActivateTab, map[string]interface{}{"tab_id": tabID, "focused": focused}); err != nil {
 		return fmt.Errorf("failed to communicate with browser extension: %w", err)
 	}
 	return nil
+}
+
+// OpenURLs opens the given URLs in new tabs and returns their data.
+func (r *BrowserAPI) OpenURLs(urls []string) ([]TabData, error) {
+	raw, err := r.sendCommand(MethodOpenURLs, map[string]interface{}{"urls": urls})
+	if err != nil {
+		return nil, fmt.Errorf("failed to communicate with browser extension: %w", err)
+	}
+	var tabs []TabData
+	if err := json.Unmarshal(raw, &tabs); err != nil {
+		return nil, errors.NewTransportError("unexpected open_urls response", err)
+	}
+	return tabs, nil
+}
+
+// Info reports version/handshake state for the D-Bus GetInfo method.
+type Info struct {
+	MediatorVersion   string
+	ExtensionVersion  string
+	MediatorProtocol  int
+	ExtensionProtocol int
+	Compatible        bool
+}
+
+// Info returns the current handshake state.
+func (r *BrowserAPI) Info() Info {
+	r.infoMu.RLock()
+	defer r.infoMu.RUnlock()
+	return Info{
+		MediatorVersion:   config.Version,
+		ExtensionVersion:  r.extensionVersion,
+		MediatorProtocol:  ProtocolVersion,
+		ExtensionProtocol: r.extensionProtocol,
+		Compatible:        r.helloReceived && r.extensionProtocol == ProtocolVersion,
+	}
 }

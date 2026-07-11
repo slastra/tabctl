@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/tabctl/tabctl/internal/config"
@@ -23,7 +22,6 @@ func NewDBusClient(browser string) (api.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create D-Bus client: %w", err)
 	}
-
 	return &DBusClient{
 		client:  dbusClient,
 		browser: browser,
@@ -33,18 +31,12 @@ func NewDBusClient(browser string) (api.Client, error) {
 
 // determinePrefixForBrowser returns the user-visible tab-ID prefix for this
 // browser. The lowercased browser name is used as-is so two browsers in the
-// same family (e.g. Brave and Helium) get distinct prefixes and the CLI's
-// tab-ID-based routing stays unambiguous.
+// same family (e.g. Brave and Helium) get distinct prefixes.
 func determinePrefixForBrowser(browser string) string {
-	if browser == "" {
-		return "unknown."
-	}
 	return strings.ToLower(browser) + "."
 }
 
-func (c *DBusClient) GetPrefix() string {
-	return c.prefix
-}
+func (c *DBusClient) GetPrefix() string { return c.prefix }
 
 func (c *DBusClient) Close() error {
 	if c.client != nil {
@@ -53,72 +45,82 @@ func (c *DBusClient) Close() error {
 	return nil
 }
 
+// composeID builds the user-facing "<browser>.<window>.<tab>" token.
+func (c *DBusClient) composeID(windowID, tabID int32) string {
+	return fmt.Sprintf("%s%d.%d", c.prefix, windowID, tabID)
+}
+
 func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	tabInfos, err := c.client.ListTabs(ctx, c.browser)
+	infos, err := c.client.ListTabs(ctx, c.browser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tabs via D-Bus: %w", err)
 	}
 
-	tabs := make([]types.Tab, len(tabInfos))
-	for i, info := range tabInfos {
+	tabs := make([]types.Tab, len(infos))
+	for i, info := range infos {
 		tabs[i] = types.Tab{
-			ID:       c.prefix + info.ID,
+			ID:       c.composeID(info.WindowID, info.TabID),
 			Title:    info.Title,
 			URL:      info.URL,
-			WindowID: windowIDFromTabID(info.ID),
+			WindowID: int(info.WindowID),
 			Index:    int(info.Index),
 			Active:   info.Active,
 			Pinned:   info.Pinned,
 		}
 	}
-
 	return tabs, nil
 }
 
-// windowIDFromTabID extracts the window ID embedded in the extension's tab
-// ID format "<family>.<window>.<tab>" (e.g. "c.1.123" -> 1).
-func windowIDFromTabID(id string) int {
-	parts := strings.Split(id, ".")
-	if len(parts) != 3 {
-		return 0
-	}
-	winID, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0
-	}
-	return winID
-}
-
-func (c *DBusClient) CloseTabs(tabIDs []string) error {
+func (c *DBusClient) CloseTabs(tabIDs []int) error {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	// Strip the browser-name prefix before forwarding: the mediator and the
-	// JS extension speak the original "c.win.tab" / "f.win.tab" format.
-	stripped := make([]string, len(tabIDs))
+	ids := make([]int32, len(tabIDs))
 	for i, id := range tabIDs {
-		stripped[i] = strings.TrimPrefix(id, c.prefix)
+		ids[i] = int32(id)
 	}
-	return c.client.CloseTab(ctx, c.browser, strings.Join(stripped, ","))
+	return c.client.CloseTabs(ctx, c.browser, ids)
 }
 
-func (c *DBusClient) ActivateTab(tabID string, focused bool) error {
+func (c *DBusClient) ActivateTab(tabID int, focused bool) error {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	return c.client.ActivateTab(ctx, c.browser, strings.TrimPrefix(tabID, c.prefix), focused)
+	return c.client.ActivateTab(ctx, c.browser, int32(tabID), focused)
 }
 
-func (c *DBusClient) OpenTab(url string) (string, error) {
+func (c *DBusClient) OpenTab(url string) (types.Tab, error) {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	id, err := c.client.OpenTab(ctx, c.browser, url)
+	windowID, tabID, err := c.client.OpenTab(ctx, c.browser, url)
 	if err != nil {
-		return "", fmt.Errorf("failed to open tab via D-Bus: %w", err)
+		return types.Tab{}, fmt.Errorf("failed to open tab via D-Bus: %w", err)
 	}
-	return c.prefix + id, nil
+	return types.Tab{
+		ID:       c.composeID(windowID, tabID),
+		URL:      url,
+		WindowID: int(windowID),
+	}, nil
+}
+
+func (c *DBusClient) Info() (api.Info, error) {
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	i, err := c.client.GetInfo(ctx, c.browser)
+	if err != nil {
+		return api.Info{}, err
+	}
+	return api.Info{
+		Browser:           c.browser,
+		MediatorVersion:   i.MediatorVersion,
+		ExtensionVersion:  i.ExtensionVersion,
+		MediatorProtocol:  int(i.MediatorProtocol),
+		ExtensionProtocol: int(i.ExtensionProtocol),
+		Compatible:        i.Compatible,
+	}, nil
 }

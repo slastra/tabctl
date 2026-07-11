@@ -28,3 +28,10 @@ const (
 	ChromeID       = "baomblllgemcgbignhpbipgiofmjdhpn" // Chrome/Chromium/Brave
 )
 
+// Version is the build version, injected via -ldflags at build time.
+var Version = "dev"
+
+// ProtocolVersion is the native-messaging protocol version the mediator and
+// extension must agree on. Bumped only on breaking wire changes.
+const ProtocolVersion = 2
+

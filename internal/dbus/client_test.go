@@ -24,12 +24,7 @@ func TestFilterBrowserNames(t *testing.T) {
 			want:  []string{"Firefox", "Chrome"},
 		},
 		{
-			name:  "Manager excluded",
-			names: []string{prefix + "Manager", prefix + "Brave"},
-			want:  []string{"Brave"},
-		},
-		{
-			name:  "empty suffix excluded",
+			name:  "empty suffix and bare base excluded",
 			names: []string{prefix, ServiceNameBase},
 			want:  nil,
 		},

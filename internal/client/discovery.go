@@ -10,7 +10,6 @@ import (
 // MediatorInfo represents information about a discovered mediator
 type MediatorInfo struct {
 	Browser string
-	Prefix  string
 }
 
 // DiscoverMediators discovers all available D-Bus mediators. An empty
@@ -36,10 +35,7 @@ func DiscoverMediators() ([]MediatorInfo, error) {
 	// Create MediatorInfo for each browser
 	mediators := make([]MediatorInfo, 0, len(browsers))
 	for _, browser := range browsers {
-		mediators = append(mediators, MediatorInfo{
-			Browser: browser,
-			Prefix:  determinePrefixForBrowser(browser),
-		})
+		mediators = append(mediators, MediatorInfo{Browser: browser})
 	}
 
 	return mediators, nil

@@ -2,39 +2,23 @@
 // It handles communication between the browser extension and the CLI tool.
 package mediator
 
-import "context"
+import "encoding/json"
 
-// Message type constants for the native messaging protocol
-const (
-	// MsgTypePing is sent by the browser to check if the host is alive
-	MsgTypePing = "ping"
-	// MsgTypePong is the response to a ping message
-	MsgTypePong = "pong"
-	// MsgTypeHealthCheck is a health check request from the browser
-	MsgTypeHealthCheck = "health_check"
-	// MsgTypeHealthCheckResponse is the response to a health check
-	MsgTypeHealthCheckResponse = "health_check_response"
+// MaxMessageSize is the maximum allowed native-messaging message size (10MB).
+const MaxMessageSize = 10 * 1024 * 1024
 
-	// MaxMessageSize is the maximum allowed message size (10MB)
-	MaxMessageSize = 10 * 1024 * 1024
-)
-
-// Transport defines the interface for native messaging communication.
-// Implementations handle the low-level protocol details including
-// message framing (4-byte length header) and JSON encoding.
+// Transport is a framed-JSON pipe to the browser extension. It handles the
+// 4-byte length prefix and delivers/accepts raw JSON messages; routing and
+// interpretation (requests vs responses) belong to the caller.
 type Transport interface {
-	// Send encodes and sends a message to the browser
+	// Send frames and writes a message to the extension.
 	Send(message interface{}) error
-	// Recv receives and decodes a message from the browser, honoring
-	// context cancellation. It automatically handles ping/health check
-	// messages internally.
-	Recv(ctx context.Context) (map[string]interface{}, error)
-	// Drain discards any buffered messages without blocking. Used to
-	// clear stale responses after a Recv timeout, since the extension
-	// protocol has no request IDs to correlate replies.
-	Drain()
-	// Close cleans up any resources (no-op for stdio)
+	// Incoming delivers each decoded message as it arrives. Closed on
+	// disconnect.
+	Incoming() <-chan json.RawMessage
+	// Errors reports disconnection or fatal read errors. Closed on
+	// disconnect.
+	Errors() <-chan error
+	// Close releases resources.
 	Close() error
 }
-
-
