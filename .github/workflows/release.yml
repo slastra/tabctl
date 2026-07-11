@@ -19,8 +19,10 @@ jobs:
       - name: Build binaries (linux-amd64)
         run: |
           mkdir -p dist
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/tabctl-linux-amd64 ./cmd/tabctl
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/tabctl-mediator-linux-amd64 ./cmd/tabctl-mediator
+          VERSION="${GITHUB_REF_NAME#v}"
+          LDFLAGS="-s -w -X github.com/tabctl/tabctl/internal/config.Version=$VERSION"
+          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/tabctl-linux-amd64 ./cmd/tabctl
+          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/tabctl-mediator-linux-amd64 ./cmd/tabctl-mediator
 
       # Store zips only; CRX signing needs the private key, which stays offline
       - name: Package extensions

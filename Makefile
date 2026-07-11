@@ -4,7 +4,7 @@ BUILD_DIR=build
 DIST_DIR=dist
 
 # Go build flags
-LDFLAGS=-ldflags "-X main.version=$(VERSION)"
+LDFLAGS=-ldflags "-X github.com/tabctl/tabctl/internal/config.Version=$(VERSION)"
 GCFLAGS=-gcflags="all=-trimpath=$(PWD)"
 ASMFLAGS=-asmflags="all=-trimpath=$(PWD)"
 GO_BUILD=go build $(LDFLAGS) $(GCFLAGS) $(ASMFLAGS)

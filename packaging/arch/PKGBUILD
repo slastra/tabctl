@@ -32,10 +32,11 @@ build() {
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
     export CGO_LDFLAGS="${LDFLAGS}"
-    export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 
-    go build -o tabctl ./cmd/tabctl
-    go build -o tabctl-mediator ./cmd/tabctl-mediator
+    local ldflags="-linkmode=external -X github.com/tabctl/tabctl/internal/config.Version=$pkgver"
+    go build -ldflags "$ldflags" -o tabctl ./cmd/tabctl
+    go build -ldflags "$ldflags" -o tabctl-mediator ./cmd/tabctl-mediator
 
     # Build browser extensions from shared source (if available)
     if [[ -x scripts/build-extensions.sh ]]; then

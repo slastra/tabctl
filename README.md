@@ -62,29 +62,34 @@ tabctl list --browser Firefox
 tabctl list --browser Brave
 
 # Activate a tab (switches desktop if needed!)
-tabctl activate firefox.f.1.2          # Firefox tab
-tabctl activate brave.c.1234.5678      # Brave tab
-tabctl activate helium.c.1874583011.1874583012  # Helium tab
+tabctl activate firefox.1.2          # Firefox tab
+tabctl activate brave.1234.5678      # Brave tab
+tabctl activate helium.1874583011.1874583012  # Helium tab
 
 # Close tabs
-tabctl close firefox.f.1.2 firefox.f.1.3
-echo "brave.c.1234.5678" | tabctl close
+tabctl close firefox.1.2 firefox.1.3
+echo "brave.1234.5678" | tabctl close
 
 # Open URLs in new tabs (prints the new tab IDs)
 tabctl open https://example.com https://github.com
 echo "https://example.com" | tabctl open
 tabctl open --browser Firefox https://example.com  # when multiple browsers are connected
+
+# Show mediator/extension versions and protocol compatibility
+tabctl status
 ```
 
 ### Tab ID Format
 
 Tab IDs are prefixed with the lowercased browser name so multiple
-browsers in the same family (e.g. Brave + Helium) stay distinguishable:
+browsers (e.g. Brave + Helium) stay distinguishable:
 
-- `<browser>.<family>.<window_id>.<tab_id>`
-- `<family>` is `f` for Firefox/Zen, `c` for Chromium-family browsers
-- Examples: `firefox.f.1.2`, `helium.c.1874583011.1874583012`,
-  `brave.c.999.42`, `chrome.c.123.45`
+- `<browser>.<window_id>.<tab_id>`
+- Examples: `firefox.1.2`, `helium.1874583011.1874583012`,
+  `brave.999.42`, `chrome.123.45`
+
+Tab IDs are ephemeral — `list` prints them and `activate`/`close` consume
+them; they aren't meant to be stored.
 
 ### Output Formats
 
@@ -97,9 +102,6 @@ tabctl list --format simple
 
 # Custom delimiter
 tabctl list --delimiter ","
-
-# No headers
-tabctl list --no-headers
 ```
 
 ## Rofi Integration
@@ -132,6 +134,13 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 - **tabctl-mediator** - Native messaging host with D-Bus server
 - **Browser Extensions** - Firefox (Manifest V2) and Chrome (Manifest V3) extensions
 - **D-Bus Services** - `dev.slastra.TabCtl.Firefox`, `dev.slastra.TabCtl.Brave`
+
+The native-messaging protocol is a JSON-RPC 2.0 subset with a version
+handshake. Because the extension updates through the browser stores and the
+`tabctl` binaries update through the AUR, the two can briefly be out of
+sync after a release — **update both to matching versions together**. Run
+`tabctl status` to check; a protocol mismatch is reported there and any tab
+command fails with a clear error rather than misbehaving silently.
 
 ## Troubleshooting
 
