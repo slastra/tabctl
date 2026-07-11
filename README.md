@@ -110,17 +110,20 @@ Quick tab switching with rofi (includes desktop switching):
 
 ```bash
 # From a source checkout
-./scripts/rofi-tabctl-wmctrl.sh   # X11 (wmctrl)
-./scripts/rofi-tabctl-niri.sh     # Niri (Wayland)
+./scripts/rofi-tabctl-wmctrl.sh     # X11 (wmctrl)
+./scripts/rofi-tabctl-niri.sh       # Niri (Wayland)
+./scripts/rofi-tabctl-hyprland.sh   # Hyprland (Wayland), with favicons
 
 # AUR installs ship the scripts here
 /usr/share/tabctl/scripts/rofi-tabctl-wmctrl.sh
 /usr/share/tabctl/scripts/rofi-tabctl-niri.sh
+/usr/share/tabctl/scripts/rofi-tabctl-hyprland.sh
 ```
 
-Add to your window manager keybindings for instant access. If
-`~/.config/rofi/browser-tabs.rasi` exists it is used as the rofi theme;
-otherwise the scripts fall back to your default theme.
+Add to your window manager keybindings for instant access. The niri and
+hyprland scripts also render per-tab favicons (needs `jq`, `curl`, and
+`imagemagick`). They use your default rofi theme — style them via your
+normal rofi config.
 
 ## Architecture
 

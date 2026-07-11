@@ -12,9 +12,10 @@ optdepends=(
     'rofi: rofi tab-switcher scripts'
     'wmctrl: X11 window focusing (rofi-tabctl-wmctrl.sh)'
     'niri: Wayland window focusing (rofi-tabctl-niri.sh)'
-    'jq: JSON parsing in rofi-tabctl-niri.sh'
-    'curl: favicon fetching in rofi-tabctl-niri.sh'
-    'imagemagick: favicon processing in rofi-tabctl-niri.sh'
+    'hyprland: Wayland window focusing (rofi-tabctl-hyprland.sh)'
+    'jq: JSON parsing in the niri/hyprland rofi scripts'
+    'curl: favicon fetching in the niri/hyprland rofi scripts'
+    'imagemagick: favicon processing in the niri/hyprland rofi scripts'
     'firefox: Firefox browser support'
     'brave-bin: Brave browser support'
     'chromium: Chromium browser support'
@@ -60,6 +61,7 @@ package() {
     # Install rofi scripts
     install -Dm755 scripts/rofi-tabctl-wmctrl.sh "$pkgdir/usr/share/tabctl/scripts/rofi-tabctl-wmctrl.sh"
     install -Dm755 scripts/rofi-tabctl-niri.sh "$pkgdir/usr/share/tabctl/scripts/rofi-tabctl-niri.sh"
+    install -Dm755 scripts/rofi-tabctl-hyprland.sh "$pkgdir/usr/share/tabctl/scripts/rofi-tabctl-hyprland.sh"
 
     # Install browser extensions
     install -dm755 "$pkgdir/usr/share/tabctl/extensions"

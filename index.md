@@ -93,6 +93,9 @@ scripts/rofi-tabctl-wmctrl.sh
 
 # Wayland with Niri
 scripts/rofi-tabctl-niri.sh
+
+# Wayland with Hyprland (favicons)
+scripts/rofi-tabctl-hyprland.sh
 ```
 
 AUR installs ship both scripts in `/usr/share/tabctl/scripts/`.

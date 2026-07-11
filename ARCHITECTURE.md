@@ -249,9 +249,11 @@ tabctl/
 │   ├── chrome/               # Chrome/Brave extension (generated background.js)
 │   └── shared/               # Extension source (core.js + adapters)
 └── scripts/
-    ├── build-extensions.sh   # Assemble extensions from shared source
-    ├── rofi-tabctl-wmctrl.sh # X11 integration
-    └── rofi-tabctl-niri.sh   # Niri (Wayland) integration
+    ├── build-extensions.sh     # Assemble extensions from shared source
+    ├── integration-test.py      # End-to-end mediator+CLI test over D-Bus
+    ├── rofi-tabctl-wmctrl.sh    # X11 integration
+    ├── rofi-tabctl-niri.sh      # Niri (Wayland) integration
+    └── rofi-tabctl-hyprland.sh  # Hyprland (Wayland) integration
 ```
 
 ## Error Handling
