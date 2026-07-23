@@ -4,6 +4,7 @@
 // surface as rejections. Listeners only at top level — core.js calls connect().
 
 const runtimeApi = chrome.runtime;
+const tabsApi = chrome.tabs;
 const badgeApi = chrome.action;
 const KEEPALIVE_ALARM = 'tabctl-keepalive';
 

@@ -25,6 +25,9 @@ type BrowserAPI struct {
 	helloReceived     bool
 	extensionVersion  string
 	extensionProtocol int
+
+	tabsChangedMu sync.RWMutex
+	onTabsChanged func()
 }
 
 // commandTimeout bounds how long sendCommand waits for a reply. It is a
@@ -74,9 +77,25 @@ func (r *BrowserAPI) dispatch() {
 	}
 }
 
-// handleRequest processes an extension-initiated request. The only one we
-// expect is the connect-time hello handshake.
+// SetTabsChangedHandler registers a callback for the extension's tabs_changed
+// notification. The callback runs on the dispatch goroutine — keep it fast.
+func (r *BrowserAPI) SetTabsChangedHandler(f func()) {
+	r.tabsChangedMu.Lock()
+	r.onTabsChanged = f
+	r.tabsChangedMu.Unlock()
+}
+
+// handleRequest processes an extension-initiated request or notification.
 func (r *BrowserAPI) handleRequest(method string, raw json.RawMessage) {
+	if method == MethodTabsChanged {
+		r.tabsChangedMu.RLock()
+		f := r.onTabsChanged
+		r.tabsChangedMu.RUnlock()
+		if f != nil {
+			f()
+		}
+		return
+	}
 	if method != MethodHello {
 		return
 	}

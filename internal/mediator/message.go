@@ -25,6 +25,10 @@ const (
 	MethodCloseTabs   = "close_tabs"
 	MethodActivateTab = "activate_tab"
 	MethodOpenURLs    = "open_urls"
+	// MethodTabsChanged is an extension→mediator notification (no id, no
+	// reply): the browser's tab set changed in some way. Fan-out only —
+	// consumers re-pull via ListTabs.
+	MethodTabsChanged = "tabs_changed"
 )
 
 // Request is a JSON-RPC request sent to the browser extension.

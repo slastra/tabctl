@@ -25,6 +25,9 @@ func NewMediator(browser string) (*Mediator, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Extension tabs_changed notifications fan out as D-Bus TabsUpdated
+	// signals, so bar/strip consumers get push updates instead of polling.
+	browserAPI.SetTabsChangedHandler(dbusServer.EmitTabsUpdated)
 
 	return &Mediator{
 		browserAPI: browserAPI,

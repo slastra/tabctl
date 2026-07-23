@@ -4,6 +4,7 @@
 // sendError. Listeners only at top level — core.js calls connect().
 
 const runtimeApi = browser.runtime;
+const tabsApi = browser.tabs;
 const badgeApi = browser.browserAction;
 
 const browserTabs = {

@@ -124,6 +124,40 @@ function openUrls(id, urls) {
 }
 
 // ============================================================================
+// TAB CHANGE NOTIFICATIONS (extension -> mediator, no reply expected)
+// ============================================================================
+
+// A burst of tab churn (session restore, "close other tabs") coalesces into
+// one notification; consumers re-pull the full list anyway.
+const TABS_CHANGED_DEBOUNCE_MS = 200;
+var tabsChangedTimer = null;
+
+function notifyTabsChanged() {
+  clearTimeout(tabsChangedTimer);
+  tabsChangedTimer = setTimeout(() => {
+    // Notification: no id, so no response is expected or sent. Mediators
+    // that predate tabs_changed drop unknown methods silently.
+    postToMediator({ jsonrpc: JSONRPC_VERSION, method: 'tabs_changed' });
+  }, TABS_CHANGED_DEBOUNCE_MS);
+}
+
+function watchTabEvents() {
+  tabsApi.onCreated.addListener(notifyTabsChanged);
+  tabsApi.onRemoved.addListener(notifyTabsChanged);
+  tabsApi.onMoved.addListener(notifyTabsChanged);
+  tabsApi.onActivated.addListener(notifyTabsChanged);
+  tabsApi.onAttached.addListener(notifyTabsChanged);
+  tabsApi.onDetached.addListener(notifyTabsChanged);
+  // onUpdated fires for loading progress and favicon churn too — only the
+  // fields that change what consumers display are worth a notification.
+  tabsApi.onUpdated.addListener((tabId, changeInfo) => {
+    if ('title' in changeInfo || 'url' in changeInfo || 'pinned' in changeInfo) {
+      notifyTabsChanged();
+    }
+  });
+}
+
+// ============================================================================
 // MESSAGE DISPATCH
 // ============================================================================
 
@@ -231,5 +265,7 @@ function handleDisconnect() {
   setTimeout(connect, delay);
 }
 
-// Single startup entry point (must stay the last line of the concatenated script).
+// Single startup entry point (must stay the last lines of the concatenated
+// script). Tab listeners register before connect so no early event is missed.
+watchTabEvents();
 connect();

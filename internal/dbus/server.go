@@ -101,6 +101,12 @@ func (s *Server) GetInfo() (string, string, int32, int32, bool, *dbus.Error) {
 	return i.MediatorVersion, i.ExtensionVersion, i.MediatorProtocol, i.ExtensionProtocol, i.Compatible, nil
 }
 
+// EmitTabsUpdated broadcasts the TabsUpdated signal: the browser's tab set
+// changed and subscribers should re-pull ListTabs. Carries no payload.
+func (s *Server) EmitTabsUpdated() {
+	_ = s.conn.Emit(ObjectPath(s.browser), InterfaceBrowser+".TabsUpdated")
+}
+
 func generateIntrospection() string {
 	return `
 <node>
@@ -127,6 +133,7 @@ func generateIntrospection() string {
 			<arg direction="out" type="i" name="extension_protocol" />
 			<arg direction="out" type="b" name="compatible" />
 		</method>
+		<signal name="TabsUpdated" />
 	</interface>
 </node>`
 }
