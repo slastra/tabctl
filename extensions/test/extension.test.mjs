@@ -20,6 +20,11 @@ function buildMockApi(kind, tabsImpl) {
   let onMessage = null;
   let onDisconnect = null;
 
+  // Captured tab-event listeners (watchTabEvents registers these); tests
+  // fire them via port.fireTab(name, ...args) to drive tabs_changed.
+  const tabListeners = {};
+  const mkEvent = (name) => ({ addListener: (fn) => { (tabListeners[name] ||= []).push(fn); } });
+
   // Controllable timers: record pending callbacks so tests can fire them.
   const timers = new Map();
   let timerSeq = 0;
@@ -39,6 +44,7 @@ function buildMockApi(kind, tabsImpl) {
     sent,
     badge,
     emit: (m) => onMessage(m),
+    fireTab: (name, ...args) => (tabListeners[name] || []).forEach((fn) => fn(...args)),
     disconnect: () => onDisconnect && onDisconnect(),
     fireTimers: () => {
       const fns = [...timers.values()];
@@ -59,6 +65,13 @@ function buildMockApi(kind, tabsImpl) {
     remove: tabsImpl.remove,
     create: tabsImpl.create,
     update: tabsImpl.update,
+    onCreated: mkEvent('onCreated'),
+    onRemoved: mkEvent('onRemoved'),
+    onMoved: mkEvent('onMoved'),
+    onActivated: mkEvent('onActivated'),
+    onAttached: mkEvent('onAttached'),
+    onDetached: mkEvent('onDetached'),
+    onUpdated: mkEvent('onUpdated'),
   };
   const windowsApi = { update: tabsImpl.windowsUpdate || (() => Promise.resolve({})) };
 
@@ -213,5 +226,35 @@ for (const kind of ['chrome', 'firefox']) {
     // One failed -> error, but the good one was still attempted (n === 2).
     assert.ok(resp && resp.error, 'expected an error naming the failure');
     assert.equal(n, 2, 'both urls should have been attempted');
+  });
+
+  test(`${kind}: a tab event emits a debounced tabs_changed notification`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.fireTab('onCreated', { id: 1 });
+    assert.ok(!port.sent.some((m) => m.method === 'tabs_changed'), 'must debounce, not emit synchronously');
+    port.fireTimers();
+    const note = port.sent.find((m) => m.method === 'tabs_changed');
+    assert.ok(note, 'expected a tabs_changed notification after the debounce');
+    assert.equal(note.jsonrpc, '2.0');
+    assert.equal('id' in note, false, 'notification carries no id (no reply expected)');
+  });
+
+  test(`${kind}: a burst of tab events coalesces into one notification`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.fireTab('onCreated', { id: 1 });
+    port.fireTab('onMoved', 1, {});
+    port.fireTab('onActivated', { tabId: 1 });
+    port.fireTab('onRemoved', 2, {});
+    port.fireTimers();
+    const notes = port.sent.filter((m) => m.method === 'tabs_changed');
+    assert.equal(notes.length, 1, 'a burst must coalesce into a single notification');
+  });
+
+  test(`${kind}: favicon/progress-only onUpdated does not notify`, () => {
+    const port = loadBundle(kind, { query: () => Promise.resolve([]) });
+    port.fireTab('onUpdated', 1, { favIconUrl: 'x' });
+    port.fireTab('onUpdated', 1, { status: 'loading' });
+    port.fireTimers();
+    assert.ok(!port.sent.some((m) => m.method === 'tabs_changed'), 'churn-only updates must not notify');
   });
 }
