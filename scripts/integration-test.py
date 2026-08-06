@@ -34,7 +34,7 @@ def spawn_extension(hello_protocol, handlers):
     """Start a mediator wired to a scripted extension. Returns (proc, state)."""
     med = subprocess.Popen(MED_ARGS, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     wf = frame_writer(med.stdin)
-    state = {"closed": []}
+    state = {"closed": [], "activated": []}
 
     def loop():
         while True:
@@ -64,20 +64,26 @@ TABS = [
      "index": 1, "active": False, "pinned": False},
 ]
 
-def compatible_handlers(wf, state, msg):
-    mid, method = msg.get("id"), msg["method"]
-    params = msg.get("params") or {}
-    if method == "list_tabs":
-        wf({"jsonrpc": "2.0", "id": mid, "result": TABS})
-    elif method in ("activate_tab",):
-        wf({"jsonrpc": "2.0", "id": mid, "result": None})
-    elif method == "close_tabs":
-        state["closed"].extend(params.get("tab_ids", []))
-        wf({"jsonrpc": "2.0", "id": mid, "result": None})
-    elif method == "open_urls":
-        wf({"jsonrpc": "2.0", "id": mid, "result": [
-            {"windowId": 1, "tabId": 99, "title": "", "url": params["urls"][0],
-             "index": 5, "active": True, "pinned": False}]})
+def handlers_for(tabs):
+    """Scripted extension responses backed by a specific tab set."""
+    def handlers(wf, state, msg):
+        mid, method = msg.get("id"), msg["method"]
+        params = msg.get("params") or {}
+        if method == "list_tabs":
+            wf({"jsonrpc": "2.0", "id": mid, "result": tabs})
+        elif method == "activate_tab":
+            state["activated"].append((params.get("tab_id"), params.get("focused")))
+            wf({"jsonrpc": "2.0", "id": mid, "result": None})
+        elif method == "close_tabs":
+            state["closed"].extend(params.get("tab_ids", []))
+            wf({"jsonrpc": "2.0", "id": mid, "result": None})
+        elif method == "open_urls":
+            wf({"jsonrpc": "2.0", "id": mid, "result": [
+                {"windowId": 1, "tabId": 99, "title": "", "url": params["urls"][0],
+                 "index": 5, "active": True, "pinned": False}]})
+    return handlers
+
+compatible_handlers = handlers_for(TABS)
 
 # --- Scenario 1: compatible extension -------------------------------------
 med, state = spawn_extension(2, compatible_handlers)
@@ -108,6 +114,70 @@ try:
 finally:
     med.terminate()
     med.wait()
+    time.sleep(0.3)
+
+# --- Scenario 3: two profiles of the same browser (issue #2) ---------------
+# Each browser profile spawns its own mediator, and they all detect the same
+# browser. The second must claim a distinct bus name instead of dying on the
+# collision, so both profiles' tabs stay reachable at once.
+PROFILE2_TABS = [
+    {"windowId": 7, "tabId": 70, "title": "Profile Two", "url": "https://p2.example",
+     "index": 0, "active": True, "pinned": False},
+]
+med1, state1 = spawn_extension(2, compatible_handlers)
+med2, state2 = spawn_extension(2, handlers_for(PROFILE2_TABS))
+med3 = None
+try:
+    r = run("list")
+    check("both profiles listed at once",
+          "firefox.1.10" in r.stdout and "firefox2.7.70" in r.stdout, r.stdout)
+
+    r = run("list", "--browser", "firefox")
+    check("--browser firefox spans every profile",
+          "firefox.1.10" in r.stdout and "firefox2.7.70" in r.stdout, r.stdout)
+
+    r = run("list", "--browser", "firefox2")
+    check("--browser firefox2 narrows to one profile",
+          "firefox2.7.70" in r.stdout and "firefox.1.10" not in r.stdout, r.stdout)
+
+    # The switch-to-tab path: activate must reach the profile that owns the
+    # tab, and only that one. Numeric tab IDs are per-profile, so a misroute
+    # would silently activate an unrelated tab in the other profile.
+    check("activate a second-profile tab", run("activate", "firefox2.7.70").returncode == 0)
+    check("profile 2 received the activate", (70, False) in state2["activated"], str(state2["activated"]))
+    check("profile 1 did not see it", state1["activated"] == [], str(state1["activated"]))
+
+    check("--focused reaches the owning profile",
+          run("activate", "--focused", "firefox2.7.70").returncode == 0)
+    check("focused flag carried through", (70, True) in state2["activated"], str(state2["activated"]))
+
+    check("activate routes back to profile 1", run("activate", "firefox.1.10").returncode == 0)
+    check("profile 1 received its own activate", (10, False) in state1["activated"], str(state1["activated"]))
+
+    check("close routes to the right profile", run("close", "firefox2.7.70").returncode == 0)
+    check("profile 2 received the close", 70 in state2["closed"], str(state2["closed"]))
+
+    s = run("status")
+    check("status lists both instances",
+          "Firefox" in s.stdout and "Firefox2" in s.stdout, s.stdout)
+
+    # First profile's browser quits: the survivor keeps serving on its own name.
+    med1.terminate()
+    med1.wait()
+    time.sleep(0.5)
+    r = run("list")
+    check("survivor still served after the other profile quits",
+          "firefox2.7.70" in r.stdout and "firefox.1.10" not in r.stdout, r.stdout)
+
+    # The freed name goes to the next profile that connects.
+    med3, _ = spawn_extension(2, compatible_handlers)
+    r = run("list")
+    check("freed instance name is reused", "firefox.1.10" in r.stdout, r.stdout)
+finally:
+    for p in (med1, med2, med3):
+        if p is not None:
+            p.terminate()
+            p.wait()
 
 print("\nRESULT:", "ALL PASS" if not failures else f"FAILURES: {failures}")
 sys.exit(1 if failures else 0)

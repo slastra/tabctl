@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tabctl/tabctl/internal/dbus"
 	"github.com/tabctl/tabctl/pkg/api"
 	"github.com/tabctl/tabctl/pkg/types"
 )
@@ -35,7 +36,7 @@ func NewBrowserManager(targetBrowser string) (*BrowserManager, error) {
 	var clientErrs []error
 
 	for _, mediator := range mediators {
-		if targetBrowser != "" && !strings.EqualFold(mediator.Browser, targetBrowser) {
+		if !matchesBrowser(mediator.Browser, targetBrowser) {
 			continue
 		}
 		client, err := newDBusClient(mediator.Browser)
@@ -62,6 +63,18 @@ func NewBrowserManager(targetBrowser string) (*BrowserManager, error) {
 	}
 
 	return &BrowserManager{clients: clients}, nil
+}
+
+// matchesBrowser reports whether a discovered mediator satisfies the
+// --browser filter. Each browser profile registers its own instance name
+// (Chrome, Chrome2), so a bare browser name selects every profile of that
+// browser while an exact instance name narrows to just one.
+func matchesBrowser(instance, target string) bool {
+	if target == "" {
+		return true
+	}
+	return strings.EqualFold(instance, target) ||
+		strings.EqualFold(dbus.BaseBrowser(instance), target)
 }
 
 // GetClients returns all available clients.

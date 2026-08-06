@@ -116,6 +116,18 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 - `dev.slastra.TabCtl.Brave`
 - `dev.slastra.TabCtl.Chrome`
 
+One mediator process runs per browser *profile*, and the profile is invisible
+from the mediator's side: Chrome passes only the extension origin in argv, all
+profiles share one browser process, and the native-host manifest directory is
+per-user rather than per-profile. So each mediator claims the first free
+instance name for its browser instead of insisting on one: `…TabCtl.Chrome`,
+then `…TabCtl.Chrome2`, up to `MaxInstances`. `RequestName` is atomic on the
+bus, so mediators racing for a slot cannot both win it.
+
+The suffix is a bare digit because it has to be legal in a D-Bus object path
+element (letters, digits, underscore) and must not contain the `.` that
+delimits a user-facing tab ID.
+
 ### Object Path
 `/dev/slastra/TabCtl/Browser/<BrowserName>`
 
@@ -161,6 +173,10 @@ lowercased browser name so multiple browsers (e.g. Brave + Helium) can be
 addressed unambiguously:
 
 - Examples: `firefox.1.2`, `brave.999.42`, `helium.1874583011.1874583012`
+
+A second profile of the same browser carries its instance suffix into the
+token (`chrome2.5.678`), so profiles are addressable separately. `--browser
+chrome` matches every Chrome profile; `--browser chrome2` narrows to one.
 
 The CLI's D-Bus client composes this token from the raw `windowId`/`tabId`
 fields in `TabInfo`; the mediator and extension speak only the numeric IDs.

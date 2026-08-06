@@ -91,6 +91,26 @@ browsers (e.g. Brave + Helium) stay distinguishable:
 Tab IDs are ephemeral — `list` prints them and `activate`/`close` consume
 them; they aren't meant to be stored.
 
+### Multiple Browser Profiles
+
+Every browser profile with the extension enabled connects independently, so
+all of their tabs show up together. The first profile to connect uses the
+plain browser name and each additional one takes a numbered suffix:
+
+```bash
+$ tabctl list
+chrome.1.234    Inbox — Work Gmail
+chrome2.5.678   Reddit
+
+tabctl list --browser chrome     # every Chrome profile
+tabctl list --browser chrome2    # just the second one
+```
+
+Which profile lands on `chrome` versus `chrome2` follows connection order,
+so it can change when you restart a browser. Since tab IDs are ephemeral
+anyway, list and act on them in the same breath rather than hardcoding a
+profile suffix in scripts.
+
 ### Output Formats
 
 ```bash

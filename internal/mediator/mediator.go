@@ -36,13 +36,21 @@ func NewMediator(browser string) (*Mediator, error) {
 	}, nil
 }
 
-// Run starts the D-Bus server and blocks until the browser disconnects.
-// A clean disconnect (EOF or closed transport) returns nil.
-func (m *Mediator) Run() error {
-	if err := m.dbusServer.Start(); err != nil {
-		return err
-	}
+// Start claims a D-Bus name and exports the browser interface.
+func (m *Mediator) Start() error {
+	return m.dbusServer.Start()
+}
 
+// BusName reports the bus-name element claimed by Start ("Chrome",
+// "Chrome2", ...). One mediator runs per browser profile, so the name
+// identifies which profile this process serves.
+func (m *Mediator) BusName() string {
+	return m.dbusServer.Name()
+}
+
+// Wait blocks until the browser disconnects. A clean disconnect (EOF or
+// closed transport) returns nil.
+func (m *Mediator) Wait() error {
 	err, ok := <-m.transport.Errors()
 	if !ok || err == nil || errors.Is(err, io.EOF) {
 		return nil // browser disconnected cleanly

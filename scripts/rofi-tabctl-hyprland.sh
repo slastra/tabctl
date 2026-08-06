@@ -9,39 +9,48 @@ FINAL_SIZE=64
 LOG_FILE="$HOME/.cache/rofi-tabs/debug.log"
 mkdir -p "$ICON_CACHE"
 
+# A second profile of the same browser registers as chrome2, chrome3, ...
+# Strip that suffix so every profile resolves to the same browser.
+browser_base() {
+  echo "${1%%[0-9]*}"
+}
+
 # Map a tabctl browser prefix → executable, display name, and icon-theme name.
 # Add new browsers here as needed. Unknown prefixes fall through to a best guess.
 browser_exec() {
-  case "$1" in
+  local b; b=$(browser_base "$1")
+  case "$b" in
     firefox)  echo "firefox" ;;
     helium)   echo "helium-browser" ;;
     brave)    echo "brave" ;;
     chrome)   echo "google-chrome-stable" ;;
     chromium) echo "chromium" ;;
     zen)      echo "zen-browser" ;;
-    *)        echo "$1" ;;
+    *)        echo "$b" ;;
   esac
 }
 browser_name() {
-  case "$1" in
+  local b; b=$(browser_base "$1")
+  case "$b" in
     firefox)  echo "Firefox" ;;
     helium)   echo "Helium" ;;
     brave)    echo "Brave" ;;
     chrome)   echo "Chrome" ;;
     chromium) echo "Chromium" ;;
     zen)      echo "Zen" ;;
-    *)        echo "$1" ;;
+    *)        echo "$b" ;;
   esac
 }
 browser_icon() {
-  case "$1" in
+  local b; b=$(browser_base "$1")
+  case "$b" in
     firefox)  echo "firefox" ;;
     helium)   echo "helium-browser" ;;
     brave)    echo "brave-browser" ;;
     chrome)   echo "google-chrome" ;;
     chromium) echo "chromium" ;;
     zen)      echo "zen-browser" ;;
-    *)        echo "$1" ;;
+    *)        echo "$b" ;;
   esac
 }
 
@@ -117,8 +126,10 @@ entries=""
 declare -A seen_browsers
 while read -r prefix; do
   [ -z "$prefix" ] && continue
-  [ "${seen_browsers[$prefix]+x}" ] && continue
-  seen_browsers[$prefix]=1
+  # Two profiles of one browser (chrome, chrome2) get one "New Window" entry.
+  base=$(browser_base "$prefix")
+  [ "${seen_browsers[$base]+x}" ] && continue
+  seen_browsers[$base]=1
 
   exec_cmd=$(browser_exec "$prefix")
   command -v "$exec_cmd" >/dev/null 2>&1 || continue
@@ -212,8 +223,9 @@ tab_title=$(echo "$tabs_json" | jq -r --arg id "$tab_id" '.[] | select(.id == $i
 tabctl activate "$tab_id"
 
 # tabctl ids are prefixed with the browser (e.g. firefox.1.1, helium.x.y).
-# Use that to scope window matching to the right browser class.
-browser_prefix="${tab_id%%.*}"
+# Use that to scope window matching to the right browser class. Profiles of
+# one browser share a window class, so match on the base (chrome2 -> chrome).
+browser_prefix=$(browser_base "${tab_id%%.*}")
 
 # Prefer an exact title match within the right browser; fall back to substring.
 # If nothing matches by class (rare — e.g. window class doesn't share the prefix),

@@ -10,7 +10,10 @@ import (
 type Server struct {
 	conn    *dbus.Conn
 	browser string
-	handler BrowserHandler
+	// instance is the bus-name element actually claimed by Start ("Chrome",
+	// "Chrome2", ...). Empty until Start succeeds.
+	instance string
+	handler  BrowserHandler
 }
 
 // BrowserHandler is the mediator-side implementation the server adapts.
@@ -30,17 +33,43 @@ func NewServer(browser string, handler BrowserHandler) (*Server, error) {
 	return &Server{conn: conn, browser: browser, handler: handler}, nil
 }
 
-func (s *Server) Start() error {
-	serviceName := ServiceName(s.browser)
-	objectPath := ObjectPath(s.browser)
+// requestNameFunc matches (*dbus.Conn).RequestName so claimName is testable
+// without a session bus.
+type requestNameFunc func(name string, flags dbus.RequestNameFlags) (dbus.RequestNameReply, error)
 
-	reply, err := s.conn.RequestName(serviceName, dbus.NameFlagDoNotQueue)
+// claimName takes the first free bus name for this browser.
+//
+// One mediator process is spawned per browser *profile*, and a profile is
+// invisible from this side: Chrome passes only the extension origin in argv
+// and every profile shares one browser process, so all of them derive the
+// same browser name. Insisting on that one name let only a single profile
+// serve at a time (issue #2); instead each mediator walks the instance names
+// until one is free. RequestName is atomic on the bus, so two mediators
+// racing for the same slot cannot both win it.
+func claimName(request requestNameFunc, browser string) (string, error) {
+	for n := 1; n <= MaxInstances; n++ {
+		instance := InstanceName(browser, n)
+		reply, err := request(ServiceName(instance), dbus.NameFlagDoNotQueue)
+		if err != nil {
+			return "", fmt.Errorf("failed to request name %s: %w", ServiceName(instance), err)
+		}
+		if reply == dbus.RequestNameReplyPrimaryOwner {
+			return instance, nil
+		}
+	}
+	return "", fmt.Errorf("all %d %s instance names are already taken on the session bus",
+		MaxInstances, browser)
+}
+
+func (s *Server) Start() error {
+	instance, err := claimName(s.conn.RequestName, s.browser)
 	if err != nil {
-		return fmt.Errorf("failed to request name %s: %w", serviceName, err)
+		return err
 	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return fmt.Errorf("name %s already taken", serviceName)
-	}
+	// Recorded before the exports so a partially-started server still
+	// releases its name on Stop.
+	s.instance = instance
+	objectPath := ObjectPath(instance)
 
 	if err := s.conn.Export(s, objectPath, InterfaceBrowser); err != nil {
 		return fmt.Errorf("failed to export object: %w", err)
@@ -55,9 +84,13 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Name returns the bus-name element this server claimed ("Chrome",
+// "Chrome2", ...). Empty before Start succeeds.
+func (s *Server) Name() string { return s.instance }
+
 func (s *Server) Stop() error {
-	if s.conn != nil {
-		s.conn.ReleaseName(ServiceName(s.browser))
+	if s.conn != nil && s.instance != "" {
+		s.conn.ReleaseName(ServiceName(s.instance))
 		// Don't close the connection — dbus.SessionBus() returns a shared
 		// process-level singleton. Closing it would break other callers.
 	}
@@ -104,7 +137,10 @@ func (s *Server) GetInfo() (string, string, int32, int32, bool, *dbus.Error) {
 // EmitTabsUpdated broadcasts the TabsUpdated signal: the browser's tab set
 // changed and subscribers should re-pull ListTabs. Carries no payload.
 func (s *Server) EmitTabsUpdated() {
-	_ = s.conn.Emit(ObjectPath(s.browser), InterfaceBrowser+".TabsUpdated")
+	if s.instance == "" {
+		return // not started; nothing is listening on our path yet
+	}
+	_ = s.conn.Emit(ObjectPath(s.instance), InterfaceBrowser+".TabsUpdated")
 }
 
 func generateIntrospection() string {

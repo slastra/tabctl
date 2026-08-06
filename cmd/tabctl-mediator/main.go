@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/tabctl/tabctl/internal/dbus"
 	"github.com/tabctl/tabctl/internal/mediator"
 )
 
@@ -39,12 +40,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create mediator: %v", err)
 	}
+	if err := m.Start(); err != nil {
+		log.Fatalf("Failed to start mediator: %v", err)
+	}
+	// Profiles of the same browser share one log file, so tag every line
+	// with the instance that wrote it.
+	log.SetPrefix("[" + m.BusName() + "] ")
+	log.Printf("Serving on D-Bus as %s", dbus.ServiceName(m.BusName()))
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGPIPE)
 
 	errChan := make(chan error, 1)
-	go func() { errChan <- m.Run() }()
+	go func() { errChan <- m.Wait() }()
 
 	select {
 	case sig := <-sigChan:

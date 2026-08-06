@@ -147,6 +147,70 @@ func TestOpenURLsMultipleBrowsers(t *testing.T) {
 	}
 }
 
+func TestMatchesBrowser(t *testing.T) {
+	tests := []struct {
+		instance string
+		target   string
+		want     bool
+	}{
+		{"Chrome", "", true},
+		{"Chrome2", "", true},
+		{"Chrome", "Chrome", true},
+		{"Chrome", "chrome", true},
+		// A bare browser name covers every profile of that browser.
+		{"Chrome2", "chrome", true},
+		{"Chrome16", "Chrome", true},
+		// An exact instance name narrows to the one profile.
+		{"Chrome2", "chrome2", true},
+		{"Chrome", "chrome2", false},
+		{"Chrome3", "chrome2", false},
+		{"Firefox", "chrome", false},
+		{"Firefox2", "chrome", false},
+	}
+
+	for _, tt := range tests {
+		if got := matchesBrowser(tt.instance, tt.target); got != tt.want {
+			t.Errorf("matchesBrowser(%q, %q) = %v, want %v", tt.instance, tt.target, got, tt.want)
+		}
+	}
+}
+
+func TestNewBrowserManagerProfileFiltering(t *testing.T) {
+	origDiscover, origNewClient := discoverMediators, newDBusClient
+	defer func() { discoverMediators, newDBusClient = origDiscover, origNewClient }()
+
+	discoverMediators = func() ([]MediatorInfo, error) {
+		return []MediatorInfo{{Browser: "Chrome"}, {Browser: "Chrome2"}, {Browser: "Firefox"}}, nil
+	}
+	newDBusClient = func(browser string) (api.Client, error) {
+		return &fakeClient{prefix: strings.ToLower(browser) + "."}, nil
+	}
+
+	tests := []struct {
+		target string
+		want   []string
+	}{
+		{"", []string{"chrome.", "chrome2.", "firefox."}},
+		{"chrome", []string{"chrome.", "chrome2."}},
+		{"chrome2", []string{"chrome2."}},
+		{"firefox", []string{"firefox."}},
+	}
+
+	for _, tt := range tests {
+		bm, err := NewBrowserManager(tt.target)
+		if err != nil {
+			t.Fatalf("NewBrowserManager(%q) failed: %v", tt.target, err)
+		}
+		var got []string
+		for _, c := range bm.GetClients() {
+			got = append(got, c.GetPrefix())
+		}
+		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+			t.Errorf("NewBrowserManager(%q) selected %v, want %v", tt.target, got, tt.want)
+		}
+	}
+}
+
 func TestNewBrowserManagerErrors(t *testing.T) {
 	origDiscover, origNewClient := discoverMediators, newDBusClient
 	defer func() { discoverMediators, newDBusClient = origDiscover, origNewClient }()
