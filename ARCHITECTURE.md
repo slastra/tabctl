@@ -138,7 +138,7 @@ delimits a user-facing tab ID.
 
 ```go
 type BrowserHandler interface {
-    ListTabs() ([]TabInfo, error)
+    ListTabs() ([]TabInfoWithIcon, error)
     ActivateTab(tabID int32, focused bool) error
     CloseTabs(tabIDs []int32) error
     OpenTab(url string) (windowID, tabID int32, err error)
@@ -152,7 +152,7 @@ mediator/extension versions and protocol compatibility for `tabctl status`.
 ### TabInfo Structure
 
 ```go
-type TabInfo struct {
+type TabInfo struct {          // ListTabs -> a(iissibb)
     WindowID int32
     TabID    int32
     Title    string
@@ -161,10 +161,27 @@ type TabInfo struct {
     Active   bool
     Pinned   bool
 }
+
+type TabInfoWithIcon struct {  // ListTabsWithIcons -> a(iissibbs)
+    // ...same fields, plus:
+    FavIconURL string
+}
 ```
 
 The D-Bus layer carries raw browser-assigned numeric IDs; the CLI composes
 the user-facing token from them.
+
+**`TabInfo`'s field set is frozen.** D-Bus matches struct signatures by arity,
+so appending a field to it would break every consumer compiled against
+`a(iissibb)` at the call, including out-of-tree ones. New per-tab data goes on
+`TabInfoWithIcon` behind a new method instead, and the handler always returns
+the richer shape with the server projecting it down for `ListTabs`. The same
+rule applies to the next field added: extend `ListTabsWithIcons`'s successor,
+don't mutate a published signature.
+
+`ListTabs` and `ListTabsWithIcons` share one round trip to the extension:
+`list_tabs` already returns `favIconUrl` for every tab, so the richer method
+costs nothing extra and the cheaper one just drops the field.
 
 ## Tab ID Format
 

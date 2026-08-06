@@ -57,12 +57,24 @@ def spawn_extension(hello_protocol, handlers):
 def run(*args):
     return subprocess.run([CLI, *args], capture_output=True, text=True)
 
+FAVICON = "https://one.example/favicon.ico"
+
 TABS = [
     {"windowId": 1, "tabId": 10, "title": "Test One", "url": "https://one.example",
-     "index": 0, "active": True, "pinned": False},
+     "index": 0, "active": True, "pinned": False, "favIconUrl": FAVICON},
+    # No favIconUrl key at all: an extension predating the field must not
+    # break decoding, it just yields an empty string.
     {"windowId": 1, "tabId": 11, "title": "Test Two", "url": "https://two.example",
      "index": 1, "active": False, "pinned": False},
 ]
+
+def gdbus(bus_name, method):
+    """Call a method on a live mediator the way a downstream consumer would."""
+    return subprocess.run(
+        ["gdbus", "call", "--session", "--dest", f"dev.slastra.TabCtl.{bus_name}",
+         "--object-path", f"/dev/slastra/TabCtl/Browser/{bus_name}",
+         "--method", f"dev.slastra.TabCtl.Browser.{method}"],
+        capture_output=True, text=True)
 
 def handlers_for(tabs):
     """Scripted extension responses backed by a specific tab set."""
@@ -100,6 +112,29 @@ try:
     s = run("status")
     check("status OK", s.returncode == 0 and "OK" in s.stdout, s.stdout)
     check("unroutable close errors", run("close", "zen.1.5").returncode != 0)
+
+    # --- favicons ---------------------------------------------------------
+    r = run("list", "--format", "json")
+    data = json.loads(r.stdout) if r.returncode == 0 else []
+    check("json carries favIconUrl", data and data[0]["favIconUrl"] == FAVICON, r.stdout)
+    check("missing favicon is an empty string, not null",
+          len(data) > 1 and data[1]["favIconUrl"] == "", r.stdout)
+
+    # tsv is positional, so adding a field must not shift its columns.
+    r = run("list")
+    check("tsv columns unchanged",
+          all(len(line.split("\t")) == 3 for line in r.stdout.strip().split("\n")), r.stdout)
+
+    # The frozen signature: a consumer built against a(iissibb) must still be
+    # able to call ListTabs. This is the whole reason icons went on a new
+    # method rather than being appended to the existing one.
+    legacy = gdbus("Firefox", "ListTabs")
+    check("legacy ListTabs still marshals", legacy.returncode == 0, legacy.stderr)
+    check("legacy ListTabs has no favicon field", FAVICON not in legacy.stdout, legacy.stdout)
+
+    rich = gdbus("Firefox", "ListTabsWithIcons")
+    check("ListTabsWithIcons marshals", rich.returncode == 0, rich.stderr)
+    check("ListTabsWithIcons carries the favicon", FAVICON in rich.stdout, rich.stdout)
 finally:
     med.terminate()
     med.wait()

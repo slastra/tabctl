@@ -42,6 +42,11 @@ function errMsg(e) {
 
 // Map a browser tab object to the wire shape: raw numeric IDs, no composed
 // string, no TSV.
+//
+// favIconUrl is whatever the browser already resolved for the tab, so
+// consumers get the real icon instead of guessing one from the domain. It is
+// absent on tabs with no icon and on internal pages, and it is not always an
+// http(s) URL: pages that declare a data: URI favicon report it inline.
 function toTabData(tab) {
   return {
     windowId: tab.windowId,
@@ -51,6 +56,7 @@ function toTabData(tab) {
     index: tab.index,
     active: !!tab.active,
     pinned: !!tab.pinned,
+    favIconUrl: tab.favIconUrl || '',
   };
 }
 

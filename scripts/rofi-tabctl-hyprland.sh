@@ -1,10 +1,10 @@
 #!/bin/bash
-# Rofi browser tab switcher with favicons (twenty-icons.com) for Hyprland.
+# Rofi browser tab switcher with favicons for Hyprland. Icons come from the
+# browser's own favIconUrl via tabctl, so no third-party icon service is used.
 # Lists tabs across all connected browsers, activates the chosen tab via
 # tabctl, then focuses the owning Hyprland window (scoped by window class).
 
 ICON_CACHE="$HOME/.cache/rofi-tabs/icons"
-ICON_SIZE=32
 FINAL_SIZE=64
 LOG_FILE="$HOME/.cache/rofi-tabs/debug.log"
 mkdir -p "$ICON_CACHE"
@@ -82,12 +82,21 @@ add_rounded_square_background() {
   [ -s "$processed_path" ] && echo "$processed_path" || echo "$icon_path"
 }
 
+# Cache on the favicon URL itself rather than the domain, so a site changing
+# its icon misses the cache instead of serving a stale one forever.
+favicon_cache_path() {
+  local key
+  key=$(printf '%s' "$1" | sha256sum | cut -c1-16)
+  echo "$ICON_CACHE/$key.png"
+}
+
 get_cached_favicon() {
-  local url="$1"
-  local domain
-  domain=$(get_domain "$url")
-  local icon_path="$ICON_CACHE/$domain.png"
-  local processed_path="${icon_path%.png}-processed.png"
+  local favicon_url="$1"
+  [ -z "$favicon_url" ] && echo "" && return
+
+  local icon_path processed_path
+  icon_path=$(favicon_cache_path "$favicon_url")
+  processed_path="${icon_path%.png}-processed.png"
 
   [ -s "$processed_path" ] && echo "$processed_path" && return
   if [ -s "$icon_path" ]; then
@@ -97,24 +106,39 @@ get_cached_favicon() {
   echo ""
 }
 
+# Fetch the icon the browser already resolved for the tab (tabctl reports it
+# as favIconUrl). This only contacts sites you already have open, unlike the
+# third-party icon service this used to call, which learned every domain in
+# your tab list.
 download_favicon() {
-  local url="$1"
-  local domain
-  domain=$(get_domain "$url")
-  local icon_path="$ICON_CACHE/$domain.png"
+  local favicon_url="$1"
+  [ -z "$favicon_url" ] && return
 
+  local icon_path
+  icon_path=$(favicon_cache_path "$favicon_url")
   [ -s "$icon_path" ] && return
 
-  echo "Downloading favicon for domain: $domain" >>"$LOG_FILE"
+  case "$favicon_url" in
+    data:*base64,*)
+      # Inline icon: decode it, there is nothing to fetch.
+      printf '%s' "${favicon_url#*,}" | base64 -d >"$icon_path" 2>>"$LOG_FILE" \
+        || { rm -f "$icon_path"; return; }
+      ;;
+    http://*|https://*)
+      echo "Downloading favicon: $favicon_url" >>"$LOG_FILE"
+      # --remove-on-error so a failed fetch doesn't leave a 0-byte file that
+      # poisons the cache and blocks future retries.
+      curl -s -f --remove-on-error --max-time 5 "$favicon_url" -o "$icon_path" 2>>"$LOG_FILE" \
+        || { echo "No favicon at $favicon_url" >>"$LOG_FILE"; return; }
+      ;;
+    *)
+      # data: URIs that aren't base64, and anything else we can't read.
+      echo "Unsupported favicon source, entry shown without an icon" >>"$LOG_FILE"
+      return
+      ;;
+  esac
 
-  local favicon_url="https://twenty-icons.com/$domain/$ICON_SIZE"
-  # --remove-on-error so a failed fetch doesn't leave a 0-byte file that
-  # poisons the cache and blocks future retries.
-  if curl -s -f --remove-on-error "$favicon_url" -o "$icon_path" 2>>"$LOG_FILE"; then
-    add_rounded_square_background "$icon_path" >/dev/null
-  else
-    echo "No favicon for $domain (entry shown without an icon)" >>"$LOG_FILE"
-  fi
+  [ -s "$icon_path" ] && add_rounded_square_background "$icon_path" >/dev/null
 }
 
 tabs_json=$(tabctl list --format json)
@@ -153,13 +177,14 @@ n_browsers=${#new_window_cmds[@]}
 
 # Tab entries follow the New Window entries. tab_ids[i] is the id for index i + n_browsers.
 tab_ids=()
-missing_urls=()
+declare -A missing_favicons
 
-while IFS=$'\t' read -r id title url; do
-  icon=$(get_cached_favicon "$url")
+while IFS=$'\t' read -r id title url favicon; do
+  icon=$(get_cached_favicon "$favicon")
   domain=$(get_domain "$url")
 
-  [ -z "$icon" ] && missing_urls+=("$url")
+  # Tabs sharing a site share one favicon URL, so fetch it once.
+  [ -z "$icon" ] && [ -n "$favicon" ] && missing_favicons["$favicon"]=1
 
   display_text="$title - $domain"
   if [ -n "$icon" ]; then
@@ -169,13 +194,13 @@ while IFS=$'\t' read -r id title url; do
   fi
 
   tab_ids+=("$id")
-done < <(echo "$tabs_json" | jq -r '.[] | [.id, .title, .url] | @tsv')
+done < <(echo "$tabs_json" | jq -r '.[] | [.id, .title, .url, .favIconUrl] | @tsv')
 
-if [ ${#missing_urls[@]} -gt 0 ]; then
-  echo "Downloading ${#missing_urls[@]} missing favicons in background" >>"$LOG_FILE"
+if [ ${#missing_favicons[@]} -gt 0 ]; then
+  echo "Downloading ${#missing_favicons[@]} missing favicons in background" >>"$LOG_FILE"
   (
-    for url in "${missing_urls[@]}"; do
-      download_favicon "$url" &
+    for favicon in "${!missing_favicons[@]}"; do
+      download_favicon "$favicon" &
     done
     wait
   ) &

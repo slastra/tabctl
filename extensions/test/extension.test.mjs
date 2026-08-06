@@ -166,6 +166,28 @@ for (const kind of ['chrome', 'firefox']) {
     assert.equal(typeof resp.result[0].tabId, 'number');
   });
 
+  test(`${kind}: list_tabs carries the browser-resolved favicon`, async () => {
+    const port = loadBundle(kind, {
+      query: () => Promise.resolve([
+        { windowId: 1, id: 42, title: 'GitHub', url: 'https://github.com', index: 0,
+          active: true, pinned: false, favIconUrl: 'https://github.com/favicon.ico' },
+        // Inline data: URI favicons are reported verbatim, not fetched.
+        { windowId: 1, id: 43, title: 'Inline', url: 'https://inline.example', index: 1,
+          active: false, pinned: false, favIconUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+        // No icon (internal page, or not loaded yet) must not become undefined.
+        { windowId: 1, id: 44, title: 'Blank', url: 'about:blank', index: 2,
+          active: false, pinned: false },
+      ]),
+    });
+    port.emit({ jsonrpc: '2.0', id: 20, method: 'list_tabs' });
+    await tick();
+    const resp = port.sent.find((m) => m.id === 20);
+    assert.ok(resp, 'expected a response for id 20');
+    assert.equal(resp.result[0].favIconUrl, 'https://github.com/favicon.ico');
+    assert.equal(resp.result[1].favIconUrl, 'data:image/png;base64,iVBORw0KGgo=');
+    assert.equal(resp.result[2].favIconUrl, '', 'missing favicon must serialize as an empty string');
+  });
+
   test(`${kind}: close_tabs success returns null result`, async () => {
     const port = loadBundle(kind, {
       query: () => Promise.resolve([]),

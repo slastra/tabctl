@@ -75,6 +75,18 @@ func (c *Client) ListTabs(ctx context.Context, browser string) ([]TabInfo, error
 	return tabs, nil
 }
 
+// ListTabsWithIcons calls the richer method. The CLI and the mediator ship in
+// one package and are always the same build, so there is no need to fall back
+// to ListTabs when the method is missing.
+func (c *Client) ListTabsWithIcons(ctx context.Context, browser string) ([]TabInfoWithIcon, error) {
+	var tabs []TabInfoWithIcon
+	err := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".ListTabsWithIcons", 0).Store(&tabs)
+	if err != nil {
+		return nil, wrapTimeoutError(err, "ListTabsWithIcons")
+	}
+	return tabs, nil
+}
+
 func (c *Client) ActivateTab(ctx context.Context, browser string, tabID int32, focused bool) error {
 	call := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".ActivateTab", 0, tabID, focused)
 	if call.Err != nil {

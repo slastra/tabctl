@@ -74,6 +74,11 @@ type TabData struct {
 	Index    int    `json:"index"`
 	Active   bool   `json:"active"`
 	Pinned   bool   `json:"pinned"`
+	// FavIconURL is the icon the browser already resolved for the tab.
+	// Empty when the extension predates it, when the tab has no icon, or
+	// on internal pages. Not always http(s): a page declaring a data: URI
+	// favicon reports it inline.
+	FavIconURL string `json:"favIconUrl"`
 }
 
 // HelloParams is what the extension announces on connect.

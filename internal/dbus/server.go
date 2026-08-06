@@ -16,9 +16,11 @@ type Server struct {
 	handler  BrowserHandler
 }
 
-// BrowserHandler is the mediator-side implementation the server adapts.
+// BrowserHandler is the mediator-side implementation the server adapts. It
+// always yields the richer tab shape; the server projects it down for the
+// frozen ListTabs signature.
 type BrowserHandler interface {
-	ListTabs() ([]TabInfo, error)
+	ListTabs() ([]TabInfoWithIcon, error)
 	ActivateTab(tabID int32, focused bool) error
 	CloseTabs(tabIDs []int32) error
 	OpenTab(url string) (windowID, tabID int32, err error)
@@ -99,7 +101,24 @@ func (s *Server) Stop() error {
 
 // D-Bus method implementations
 
+// ListTabs serves the original "a(iissibb)" signature. Kept verbatim so
+// consumers built against it keep working; new fields land on
+// ListTabsWithIcons instead.
 func (s *Server) ListTabs() ([]TabInfo, *dbus.Error) {
+	tabs, err := s.handler.ListTabs()
+	if err != nil {
+		return nil, dbus.MakeFailedError(err)
+	}
+	infos := make([]TabInfo, len(tabs))
+	for i, t := range tabs {
+		infos[i] = t.TabInfo()
+	}
+	return infos, nil
+}
+
+// ListTabsWithIcons is ListTabs plus each tab's browser-resolved favicon
+// URL, in the same single round trip to the extension.
+func (s *Server) ListTabsWithIcons() ([]TabInfoWithIcon, *dbus.Error) {
 	tabs, err := s.handler.ListTabs()
 	if err != nil {
 		return nil, dbus.MakeFailedError(err)
@@ -149,6 +168,9 @@ func generateIntrospection() string {
 	<interface name="dev.slastra.TabCtl.Browser">
 		<method name="ListTabs">
 			<arg direction="out" type="a(iissibb)" />
+		</method>
+		<method name="ListTabsWithIcons">
+			<arg direction="out" type="a(iissibbs)" />
 		</method>
 		<method name="ActivateTab">
 			<arg direction="in" type="i" name="tab_id" />

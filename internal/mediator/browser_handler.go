@@ -15,22 +15,23 @@ func NewDBusHandler(api *BrowserAPI) *DBusHandler {
 	return &DBusHandler{api: api}
 }
 
-func (h *DBusHandler) ListTabs() ([]dbus.TabInfo, error) {
+func (h *DBusHandler) ListTabs() ([]dbus.TabInfoWithIcon, error) {
 	tabs, err := h.api.ListTabs()
 	if err != nil {
 		return nil, err
 	}
 
-	infos := make([]dbus.TabInfo, len(tabs))
+	infos := make([]dbus.TabInfoWithIcon, len(tabs))
 	for i, t := range tabs {
-		infos[i] = dbus.TabInfo{
-			WindowID: int32(t.WindowID),
-			TabID:    int32(t.TabID),
-			Title:    t.Title,
-			URL:      t.URL,
-			Index:    int32(t.Index),
-			Active:   t.Active,
-			Pinned:   t.Pinned,
+		infos[i] = dbus.TabInfoWithIcon{
+			WindowID:   int32(t.WindowID),
+			TabID:      int32(t.TabID),
+			Title:      t.Title,
+			URL:        t.URL,
+			Index:      int32(t.Index),
+			Active:     t.Active,
+			Pinned:     t.Pinned,
+			FavIconURL: t.FavIconURL,
 		}
 	}
 	return infos, nil

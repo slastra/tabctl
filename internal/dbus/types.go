@@ -19,6 +19,11 @@ const (
 // TabInfo is a tab as it crosses the D-Bus boundary: raw browser-assigned
 // numeric IDs. The CLI composes the user-facing "<browser>.<window>.<tab>"
 // token from these fields.
+//
+// Its field set is frozen: it is the "a(iissibb)" return of ListTabs, and
+// D-Bus matches struct signatures by arity, so appending a field here would
+// break every existing consumer at the call. New data goes on
+// TabInfoWithIcon behind a new method instead.
 type TabInfo struct {
 	WindowID int32
 	TabID    int32
@@ -27,6 +32,33 @@ type TabInfo struct {
 	Index    int32
 	Active   bool
 	Pinned   bool
+}
+
+// TabInfoWithIcon is TabInfo plus the browser-resolved favicon URL, returned
+// by ListTabsWithIcons as "a(iissibbs)". Consumers opt in by calling the new
+// method; ListTabs keeps its original signature.
+type TabInfoWithIcon struct {
+	WindowID   int32
+	TabID      int32
+	Title      string
+	URL        string
+	Index      int32
+	Active     bool
+	Pinned     bool
+	FavIconURL string
+}
+
+// TabInfo projects away the favicon, for the legacy ListTabs signature.
+func (t TabInfoWithIcon) TabInfo() TabInfo {
+	return TabInfo{
+		WindowID: t.WindowID,
+		TabID:    t.TabID,
+		Title:    t.Title,
+		URL:      t.URL,
+		Index:    t.Index,
+		Active:   t.Active,
+		Pinned:   t.Pinned,
+	}
 }
 
 // Info reports mediator/extension versions and protocol compatibility.
@@ -41,6 +73,7 @@ type Info struct {
 // BrowserServer is the D-Bus-facing method set (godbus signatures).
 type BrowserServer interface {
 	ListTabs() ([]TabInfo, *dbus.Error)
+	ListTabsWithIcons() ([]TabInfoWithIcon, *dbus.Error)
 	ActivateTab(tabID int32, focused bool) *dbus.Error
 	CloseTabs(tabIDs []int32) *dbus.Error
 	OpenTab(url string) (int32, int32, *dbus.Error)

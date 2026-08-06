@@ -54,7 +54,7 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 	ctx, cancel := config.CommandContext()
 	defer cancel()
 
-	infos, err := c.client.ListTabs(ctx, c.browser)
+	infos, err := c.client.ListTabsWithIcons(ctx, c.browser)
 	if err != nil {
 		return nil, err
 	}
@@ -62,13 +62,14 @@ func (c *DBusClient) ListTabs() ([]types.Tab, error) {
 	tabs := make([]types.Tab, len(infos))
 	for i, info := range infos {
 		tabs[i] = types.Tab{
-			ID:       c.composeID(info.WindowID, info.TabID),
-			Title:    info.Title,
-			URL:      info.URL,
-			WindowID: int(info.WindowID),
-			Index:    int(info.Index),
-			Active:   info.Active,
-			Pinned:   info.Pinned,
+			ID:         c.composeID(info.WindowID, info.TabID),
+			Title:      info.Title,
+			URL:        info.URL,
+			WindowID:   int(info.WindowID),
+			Index:      int(info.Index),
+			Active:     info.Active,
+			Pinned:     info.Pinned,
+			FavIconURL: info.FavIconURL,
 		}
 	}
 	return tabs, nil

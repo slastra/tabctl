@@ -124,6 +124,26 @@ tabctl list --format simple
 tabctl list --delimiter ","
 ```
 
+### Favicons
+
+`--format json` includes `favIconUrl`, the icon the browser already resolved
+for the tab, so consumers don't have to guess one from the domain or call a
+third-party icon service:
+
+```json
+{
+  "id": "firefox.1.2",
+  "title": "GitHub",
+  "url": "https://github.com",
+  "favIconUrl": "https://github.com/favicon.ico"
+}
+```
+
+It is an empty string when the tab has no icon, on browser-internal pages, and
+when the extension predates 2.2.0. It is usually an `http(s)` URL, but a page
+declaring an inline favicon reports a `data:` URI, so consumers should handle
+both. The `tsv` and `simple` formats are positional and unchanged.
+
 ## Rofi Integration
 
 Quick tab switching with rofi (includes desktop switching):
