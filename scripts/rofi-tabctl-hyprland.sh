@@ -4,10 +4,12 @@
 # Lists tabs across all connected browsers, activates the chosen tab via
 # tabctl, then focuses the owning Hyprland window (scoped by window class).
 
-ICON_CACHE="$HOME/.cache/rofi-tabs/icons"
+# Icons live under tabctl rather than this script's own directory, so other
+# tabctl consumers can share the same cache.
+ICON_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/tabctl/favicons"
 FINAL_SIZE=64
 LOG_FILE="$HOME/.cache/rofi-tabs/debug.log"
-mkdir -p "$ICON_CACHE"
+mkdir -p "$ICON_CACHE" "$(dirname "$LOG_FILE")"
 
 # A second profile of the same browser registers as chrome2, chrome3, ...
 # Strip that suffix so every profile resolves to the same browser.
@@ -61,7 +63,26 @@ get_domain() {
   echo "$1" | sed -E 's|^https?://||' | sed -E 's|^www\.||' | cut -d'/' -f1
 }
 
-# Composite a favicon onto a white rounded square so dark themes don't swallow it.
+# Cached icons are all named ".png" whatever they hold, and ImageMagick trusts
+# the extension before the content. An ICO saved as .png reaches the PNG
+# decoder and fails with "improper image header", which silently loses a large
+# share of real favicons. Sniff the true type and name it for magick.
+magick_format() {
+  case "$(file -b --mime-type "$1" 2>/dev/null)" in
+    image/vnd.microsoft.icon|image/x-icon) echo "ico"  ;;
+    image/svg+xml)                         echo "svg"  ;;
+    image/jpeg)                            echo "jpeg" ;;
+    image/gif)                             echo "gif"  ;;
+    image/webp)                            echo "webp" ;;
+    image/png)                             echo "png"  ;;
+    *)                                     echo ""     ;; # let magick guess
+  esac
+}
+
+# Composite a favicon onto a white rounded square so dark themes don't swallow
+# it. "[0]" takes the first frame of a multi-frame ICO. On failure return
+# nothing: handing rofi an ICO named .png makes its loader throw, which is
+# worse than showing no icon.
 add_rounded_square_background() {
   local icon_path="$1"
   local processed_path="${icon_path%.png}-processed.png"
@@ -72,14 +93,25 @@ add_rounded_square_background() {
   local margin=4
   local corner_radius=8
   local icon_size=$((FINAL_SIZE - padding * 2 - margin * 2))
+  local fmt spec density=()
+  fmt=$(magick_format "$icon_path")
+  spec="${fmt:+$fmt:}$icon_path[0]"
+  # SVG rasterises at its viewBox size by default, so a 32px favicon would be
+  # upscaled to the chip. Oversample and let -resize come back down.
+  [ "$fmt" = "svg" ] && density=(-density 768)
 
-  magick -size ${FINAL_SIZE}x${FINAL_SIZE} xc:none \
+  magick "${density[@]}" -size ${FINAL_SIZE}x${FINAL_SIZE} xc:none \
     -fill white -draw "roundrectangle $margin,$margin $((FINAL_SIZE - margin)),$((FINAL_SIZE - margin)) $corner_radius,$corner_radius" \
-    \( "$icon_path" -resize ${icon_size}x${icon_size} \) \
+    \( "$spec" -background none -resize ${icon_size}x${icon_size} \) \
     -gravity center -composite \
     "$processed_path" 2>>"$LOG_FILE"
 
-  [ -s "$processed_path" ] && echo "$processed_path" || echo "$icon_path"
+  if [ -s "$processed_path" ]; then
+    echo "$processed_path"
+  else
+    rm -f "$processed_path"
+    echo ""
+  fi
 }
 
 # Cache on the favicon URL itself rather than the domain, so a site changing
