@@ -166,6 +166,17 @@ normal rofi config. In the Hyprland script, **Enter** switches to the
 highlighted tab and **Ctrl+w** closes it (the menu reopens so you can clear
 several tabs in a row).
 
+## Related Projects
+
+Tools built on tabctl:
+
+- [tabstrip](https://github.com/slastra/tabstrip) — a waybar tab strip for
+  Hyprland. Your focused browser window's tabs become clickable chips in the
+  bar; click to activate, scroll to cycle. Uses tabctl's D-Bus interface and
+  the `TabsUpdated` signal for live updates.
+- [vicinae-tabctl](https://github.com/brpaz/vicinae-tabctl) — a Vicinae
+  launcher extension for switching tabs via tabctl.
+
 ## Architecture
 
 ```
