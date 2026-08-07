@@ -75,16 +75,54 @@ func (c *Client) ListTabs(ctx context.Context, browser string) ([]TabInfo, error
 	return tabs, nil
 }
 
-// ListTabsWithIcons calls the richer method. The CLI and the mediator ship in
-// one package and are always the same build, so there is no need to fall back
-// to ListTabs when the method is missing.
+// ListTabsWithIcons calls the richer method, falling back to ListTabs against
+// a mediator that predates it.
+//
+// The CLI and the mediator ship in one package, but that does not make them
+// the same *running* build. Upgrading the package leaves the old mediator
+// process alive until the browser reconnects and respawns it, so right after
+// an upgrade a new CLI talks to an old mediator. Without this fallback every
+// `tabctl list` in that window fails with "Unknown / invalid method", which
+// reads like a broken install rather than "restart your browser".
 func (c *Client) ListTabsWithIcons(ctx context.Context, browser string) ([]TabInfoWithIcon, error) {
 	var tabs []TabInfoWithIcon
 	err := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".ListTabsWithIcons", 0).Store(&tabs)
-	if err != nil {
+	if err == nil {
+		return tabs, nil
+	}
+	if !isUnknownMethod(err) {
 		return nil, wrapTimeoutError(err, "ListTabsWithIcons")
 	}
+
+	legacy, err := c.ListTabs(ctx, browser)
+	if err != nil {
+		return nil, err
+	}
+	tabs = make([]TabInfoWithIcon, len(legacy))
+	for i, t := range legacy {
+		tabs[i] = TabInfoWithIcon{
+			WindowID: t.WindowID,
+			TabID:    t.TabID,
+			Title:    t.Title,
+			URL:      t.URL,
+			Index:    t.Index,
+			Active:   t.Active,
+			Pinned:   t.Pinned,
+			// FavIconURL stays empty: the old mediator has no favicons to give.
+		}
+	}
 	return tabs, nil
+}
+
+// isUnknownMethod reports whether the peer rejected the call because it does
+// not implement the method, as opposed to failing while running it.
+func isUnknownMethod(err error) bool {
+	var derr dbus.Error
+	if errors.As(err, &derr) {
+		return derr.Name == "org.freedesktop.DBus.Error.UnknownMethod" ||
+			derr.Name == "org.freedesktop.DBus.Error.UnknownInterface"
+	}
+	return false
 }
 
 func (c *Client) ActivateTab(ctx context.Context, browser string, tabID int32, focused bool) error {
