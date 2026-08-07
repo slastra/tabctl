@@ -88,28 +88,27 @@ browsers (e.g. Brave + Helium) stay distinguishable:
 - Examples: `firefox.1.2`, `helium.1874583011.1874583012`,
   `brave.999.42`, `chrome.123.45`
 
-Tab IDs are ephemeral — `list` prints them and `activate`/`close` consume
-them; they aren't meant to be stored.
+Tab IDs are ephemeral. `list` prints them and `activate` or `close` consume
+them. Do not store them.
 
 ### Multiple Browser Profiles
 
-Every browser profile with the extension enabled connects independently, so
-all of their tabs show up together. The first profile to connect uses the
-plain browser name and each additional one takes a numbered suffix:
+Each browser profile with the extension enabled connects independently, so all
+of their tabs appear together. The first profile to connect uses the plain
+browser name. Each additional profile takes a numbered suffix.
 
 ```bash
 $ tabctl list
-chrome.1.234    Inbox — Work Gmail
+chrome.1.234    Inbox (Work Gmail)
 chrome2.5.678   Reddit
 
 tabctl list --browser chrome     # every Chrome profile
 tabctl list --browser chrome2    # just the second one
 ```
 
-Which profile lands on `chrome` versus `chrome2` follows connection order,
-so it can change when you restart a browser. Since tab IDs are ephemeral
-anyway, list and act on them in the same breath rather than hardcoding a
-profile suffix in scripts.
+The suffix follows connection order, so it can change when you restart a
+browser. Do not hardcode a profile suffix in a script. List the tabs and act
+on the result instead.
 
 ### Output Formats
 
@@ -117,7 +116,7 @@ profile suffix in scripts.
 # JSON output
 tabctl list --format json
 
-# Simple format (titles only — display-only, cannot be mapped back to tab IDs)
+# Simple format (titles only; cannot be mapped back to tab IDs)
 tabctl list --format simple
 
 # Custom delimiter
@@ -126,9 +125,9 @@ tabctl list --delimiter ","
 
 ### Favicons
 
-`--format json` includes `favIconUrl`, the icon the browser already resolved
-for the tab, so consumers don't have to guess one from the domain or call a
-third-party icon service:
+`--format json` includes `favIconUrl`. This is the icon the browser already
+resolved for the tab. A consumer therefore does not need to guess one from the
+domain or call a third-party icon service.
 
 ```json
 {
@@ -139,10 +138,10 @@ third-party icon service:
 }
 ```
 
-It is an empty string when the tab has no icon, on browser-internal pages, and
-when the extension predates 2.2.0. It is usually an `http(s)` URL, but a page
-declaring an inline favicon reports a `data:` URI, so consumers should handle
-both. The `tsv` and `simple` formats are positional and unchanged.
+The value is an empty string when the tab has no icon, on browser-internal
+pages, and when the extension is older than 2.2.0. It is usually an `http(s)`
+URL. A page that declares an inline favicon reports a `data:` URI instead, so
+handle both. The `tsv` and `simple` formats are positional and unchanged.
 
 ## Rofi Integration
 
@@ -158,24 +157,27 @@ Quick tab switching with rofi (includes desktop switching):
 /usr/share/tabctl/scripts/rofi-tabctl-hyprland.sh
 ```
 
-Add to your window manager keybindings for instant access. The hyprland
-script also renders per-tab favicons, using each tab's own `favIconUrl`
-rather than a third-party icon service (needs `jq`, `curl`, and
-`imagemagick`). They use your default rofi theme — style them via your
-normal rofi config. In the Hyprland script, **Enter** switches to the
-highlighted tab and **Ctrl+w** closes it (the menu reopens so you can clear
-several tabs in a row).
+Bind one to a key for instant access. Both scripts use your default rofi
+theme, so style them in your normal rofi config.
+
+The Hyprland script also shows a favicon per tab. It uses each tab's own
+`favIconUrl` and never calls a third-party icon service, so it only contacts
+sites you already have open. It needs `jq`, `curl` and `imagemagick`, and
+caches chips in `$XDG_CACHE_HOME/tabctl/favicons`.
+
+In that script, **Enter** switches to the highlighted tab. **Ctrl+w** closes
+it and reopens the menu, so you can clear several tabs in a row.
 
 ## Related Projects
 
 Tools built on tabctl:
 
-- [tabstrip](https://github.com/slastra/tabstrip) — a waybar tab strip for
-  Hyprland. Your focused browser window's tabs become clickable chips in the
-  bar; click to activate, scroll to cycle. Uses tabctl's D-Bus interface and
-  the `TabsUpdated` signal for live updates.
-- [vicinae-tabctl](https://github.com/brpaz/vicinae-tabctl) — a Vicinae
-  launcher extension for switching tabs via tabctl.
+- [tabstrip](https://github.com/slastra/tabstrip). A waybar tab strip for
+  Hyprland. It shows the tabs of every browser window on the current
+  workspace as clickable chips with favicons. It reads tabctl over D-Bus and
+  updates live on the `TabsUpdated` signal.
+- [vicinae-tabctl](https://github.com/brpaz/vicinae-tabctl). A Vicinae
+  launcher extension for switching tabs through tabctl.
 
 ## Architecture
 
@@ -193,14 +195,14 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 The native-messaging protocol is a JSON-RPC 2.0 subset with a version
 handshake. Because the extension updates through the browser stores and the
 `tabctl` binaries update through the AUR, the two can briefly be out of
-sync after a release — **update both to matching versions together**.
+sync after a release. **Update both to matching versions together.**
 
 Both sides surface a mismatch so it never fails silently:
 - If the **mediator** is newer, `tabctl status` reports it and any tab
   command fails with a clear "update" error.
 - If the **extension** is newer (it handshakes but the mediator is too old
-  to answer), the extension shows a red **!** badge on its toolbar icon —
-  hover it for the "update the tabctl package" hint.
+  to answer), the extension shows a red **!** badge on its toolbar icon.
+  Hover it for the "update the tabctl package" hint.
 
 ## Troubleshooting
 
@@ -210,7 +212,7 @@ The most common failure: the CLI reached the session bus, but no mediator
 is registered on it. In order of likelihood:
 
 1. **The extension isn't installed or is disabled.** The mediator is
-   launched by the browser through the extension — no extension, no
+   launched by the browser through the extension. No extension means no
    mediator. Install it from the store:
    - Firefox / Zen: <https://addons.mozilla.org/en-US/firefox/addon/tabctl1/>
    - Chrome / Chromium / Brave / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
@@ -234,7 +236,7 @@ tail ~/.local/state/tabctl/mediator-*.log
 ```
 
 A different error, `cannot connect to D-Bus session bus`, means the
-session bus itself is unreachable — check `DBUS_SESSION_BUS_ADDRESS`.
+session bus itself is unreachable. Check `DBUS_SESSION_BUS_ADDRESS`.
 
 ### Extension Not Connecting
 
