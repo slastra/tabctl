@@ -94,14 +94,11 @@ TabCtl includes powerful [Rofi](https://github.com/davatorium/rofi) integration 
 # X11 with wmctrl
 scripts/rofi-tabctl-wmctrl.sh
 
-# Wayland with Niri
-scripts/rofi-tabctl-niri.sh
-
 # Wayland with Hyprland (favicons)
 scripts/rofi-tabctl-hyprland.sh
 ```
 
-AUR installs ship all three scripts in `/usr/share/tabctl/scripts/`.
+AUR installs ship both scripts in `/usr/share/tabctl/scripts/`.
 
 The Rofi integration provides instant fuzzy search across all tabs with automatic desktop/workspace switching when activating tabs. In the Hyprland script, **Enter** switches to the highlighted tab and **Ctrl+w** closes it (reopening the menu so you can clear several at once).
 
