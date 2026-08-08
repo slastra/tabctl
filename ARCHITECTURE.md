@@ -45,15 +45,18 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 - `internal/mediator/transport.go` - Native messaging protocol
 
 **Responsibilities:**
-- Register on D-Bus with browser-specific name
+- Claim the first free D-Bus instance name for its browser
 - Translate between native messaging and D-Bus protocols
 - Handle browser lifecycle (exit when browser closes)
 - Log errors to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`
-  (default `~/.local/state/tabctl/`)
+  (default `~/.local/state/tabctl/`). Profiles of one browser share a file,
+  so each line is prefixed with the instance that wrote it.
 
 **Communication:**
 - **Stdin/Stdout:** Native messaging with browser extension
-- **D-Bus:** Service at `dev.slastra.TabCtl.<Browser>`
+- **D-Bus:** Service at `dev.slastra.TabCtl.<Instance>`, where instance is the
+  browser name for the first profile to connect and a numbered variant for
+  each one after it
 
 ### 3. CLI (`cmd/tabctl/`)
 
@@ -78,14 +81,15 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 
 ```
 1. User executes: tabctl list
-2. CLI discovers D-Bus services (Firefox, Brave)
-3. For each browser:
-   - CLI calls ListTabs() via D-Bus
+2. CLI discovers D-Bus services (Firefox, Chrome, Chrome2)
+3. For each instance:
+   - CLI calls ListTabsWithIcons() via D-Bus, falling back to ListTabs()
+     against a mediator that predates it
    - Mediator receives D-Bus call
    - Mediator sends {"jsonrpc":"2.0","id":N,"method":"list_tabs"} to extension
    - Extension queries browser tabs API
-   - Extension returns structured tab objects
-   - Mediator maps to TabInfo[] for D-Bus
+   - Extension returns structured tab objects, each with favIconUrl
+   - Mediator maps to TabInfoWithIcon[] for D-Bus
    - CLI composes IDs and formats output
 4. CLI displays combined results to user
 ```
@@ -231,7 +235,7 @@ and a clear error on any command) rather than failing silently.
 ```
 
 `list_tabs` returns an array of structured tab objects (`windowId`, `tabId`,
-`title`, `url`, `index`, `active`, `pinned`) — not TSV.
+`title`, `url`, `index`, `active`, `pinned`), not TSV.
 
 ### Message Framing
 
@@ -244,7 +248,8 @@ Native messaging uses length-prefixed JSON:
 ### Mediator Startup
 1. Browser launches mediator via native messaging
 2. Mediator detects browser from command-line args
-3. Registers D-Bus service with browser-specific name
+3. Claims the first free instance name for that browser, so a second profile
+   takes the next one rather than failing on the collision
 4. Logs startup to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`
 
 ### Mediator Shutdown
@@ -254,10 +259,11 @@ Native messaging uses length-prefixed JSON:
 4. Process exits cleanly
 
 ### Multi-Browser Support
-- Each browser gets its own mediator process
+- One mediator process per browser *profile*, not per browser. A browser with
+  three profiles runs three mediators, each on its own instance name.
 - Mediators run independently
 - CLI discovers all via D-Bus name listing
-- Commands can target specific browser or all
+- Commands can target one instance, every profile of a browser, or all
 
 ## Directory Structure
 
@@ -346,5 +352,4 @@ This difference is due to browser API implementations, not TabCtl limitations.
 - WebSocket support for remote control
 - Tab search and filtering in mediator
 - Batch operations optimization
-- Extension UI for status indication
 - Persistent mediator mode for faster operations
