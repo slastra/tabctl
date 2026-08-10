@@ -33,13 +33,18 @@ tabctl install
 ```bash
 git clone https://github.com/slastra/tabctl.git
 cd tabctl
-go build -o tabctl ./cmd/tabctl
-go build -o tabctl-mediator ./cmd/tabctl-mediator
+make build
 ```
+
+Both binaries land in `build/`. Use `make build` rather than a bare `go build`:
+it stamps the version, which `tabctl status` reports, and it keeps every build
+in one place. The native messaging manifest records an absolute path to the
+mediator, so binaries in two locations means the browser can keep launching an
+old one after you rebuild.
 
 2. **Install native messaging host:**
 ```bash
-./tabctl install
+./build/tabctl install
 ```
 
 3. **Install the browser extension:**
@@ -276,10 +281,13 @@ session bus itself is unreachable. Check `DBUS_SESSION_BUS_ADDRESS`.
 
 ```bash
 make build
-# or
-go build -o tabctl ./cmd/tabctl
-go build -o tabctl-mediator ./cmd/tabctl-mediator
 ```
+
+A bare `go build` works too, but it writes wherever you point `-o` and skips the
+version stamping, so `tabctl status` reports `dev`. Keep every build in `build/`
+if you have a mediator installed: the native messaging manifest holds an
+absolute path, so a second copy elsewhere means the browser can keep launching
+the old one.
 
 ### Test
 

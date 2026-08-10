@@ -33,18 +33,17 @@ paru -S tabctl
 #### From Source
 
 ```bash
-# Clone and build
+# Clone and build. Both binaries land in build/
 git clone https://github.com/slastra/tabctl
 cd tabctl
-go build -o tabctl ./cmd/tabctl
-go build -o tabctl-mediator ./cmd/tabctl-mediator
+make build
 ```
 
 ### Setup
 
 ```bash
 # Install native messaging host
-./tabctl install
+./build/tabctl install
 ```
 
 ![Installation process](screenshots/install.webp)
