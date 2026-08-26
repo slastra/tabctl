@@ -11,7 +11,7 @@ TabCtl enables powerful command-line control of browser tabs across Firefox and 
 
 ## Features
 
-- **Universal Browser Support** - Works with Firefox, Chrome, Zen, and Brave browsers
+- **Universal Browser Support** - Works with Firefox, Zen, Chrome, Chromium, Brave, Brave Origin, and Helium
 - **D-Bus Architecture** - Secure local communication without network dependencies
 - **Desktop Integration** - Automatic window focus and workspace switching
 - **Rofi Integration** - Lightning-fast fuzzy search across all open tabs
@@ -54,7 +54,7 @@ Install the extension for your browser:
 
 - **Firefox based**: [Install from Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tabctl1/)
 - **Chrome based**: [Install from Chrome Web Store](https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn)
-- **Brave**: Use the Chrome Web Store link above
+- **Brave / Brave Origin / Chromium / Helium**: Use the Chrome Web Store link above
 
 Or install manually from source:
 - Firefox/Zen: `extensions/firefox/`

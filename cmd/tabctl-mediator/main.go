@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/tabctl/tabctl/internal/browsers"
 	"github.com/tabctl/tabctl/internal/dbus"
 	"github.com/tabctl/tabctl/internal/mediator"
 )
@@ -91,37 +92,10 @@ func openLogFile(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 }
 
-// detectBrowser identifies which browser launched this mediator.
-//
-// Firefox/Zen pass their manifest path as argv[1], so we can identify them
-// directly. Chromium-family browsers (Chrome, Chromium, Brave, Helium) only
-// pass the chrome-extension:// origin, so we identify them by inspecting
-// the parent process binary via /proc/<ppid>/exe.
+// detectBrowser identifies which browser launched this mediator. The rules
+// live in internal/browsers, alongside the table that decides where `tabctl
+// install` writes each browser's manifest, so the two cannot disagree about
+// what a browser is called.
 func detectBrowser() string {
-	for _, arg := range flag.Args() {
-		switch {
-		case strings.Contains(arg, "/.mozilla/"):
-			return "Firefox"
-		case strings.Contains(arg, "/.zen/"):
-			return "Zen"
-		}
-	}
-
-	if exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", os.Getppid())); err == nil {
-		base := strings.ToLower(filepath.Base(exe))
-		switch {
-		case strings.Contains(base, "google-chrome"):
-			return "Chrome"
-		case strings.Contains(base, "chromium"):
-			return "Chromium"
-		case strings.Contains(base, "brave"):
-			return "Brave"
-		case strings.Contains(base, "helium"):
-			return "Helium"
-		case strings.Contains(base, "chrome"):
-			return "Chrome"
-		}
-	}
-
-	return "Unknown"
+	return browsers.Detect(flag.Args())
 }

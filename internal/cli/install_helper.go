@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
+	"github.com/tabctl/tabctl/internal/browsers"
 	"github.com/tabctl/tabctl/internal/config"
 )
 
@@ -21,113 +21,19 @@ type NativeMessagingManifest struct {
 	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // Firefox/Zen
 }
 
-// BrowserInfo contains information about a browser
-type BrowserInfo struct {
-	Name           string // Display name
-	Type           string // "firefox" or "chromium"
-	ConfigPath     string // Path to check for browser existence
-	NativeHostPath string // Where to install native messaging manifest
-}
-
-// getSupportedBrowsers returns the list of browsers we support
-func getSupportedBrowsers() []BrowserInfo {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-
-	browsers := []BrowserInfo{
-		{
-			Name:           "Firefox",
-			Type:           "firefox",
-			ConfigPath:     filepath.Join(homeDir, ".mozilla"),
-			NativeHostPath: filepath.Join(homeDir, ".mozilla", "native-messaging-hosts"),
-		},
-		{
-			Name:           "Zen Browser",
-			Type:           "firefox",
-			ConfigPath:     filepath.Join(homeDir, ".zen"),
-			NativeHostPath: filepath.Join(homeDir, ".zen", "native-messaging-hosts"),
-		},
-		{
-			Name:           "Chrome",
-			Type:           "chromium",
-			ConfigPath:     filepath.Join(homeDir, ".config", "google-chrome"),
-			NativeHostPath: filepath.Join(homeDir, ".config", "google-chrome", "NativeMessagingHosts"),
-		},
-		{
-			Name:           "Chromium",
-			Type:           "chromium",
-			ConfigPath:     filepath.Join(homeDir, ".config", "chromium"),
-			NativeHostPath: filepath.Join(homeDir, ".config", "chromium", "NativeMessagingHosts"),
-		},
-		{
-			Name:           "Brave",
-			Type:           "chromium",
-			ConfigPath:     filepath.Join(homeDir, ".config", "BraveSoftware", "Brave-Browser"),
-			NativeHostPath: filepath.Join(homeDir, ".config", "BraveSoftware", "Brave-Browser", "NativeMessagingHosts"),
-		},
-		{
-			Name:           "Helium",
-			Type:           "chromium",
-			ConfigPath:     filepath.Join(homeDir, ".config", "net.imput.helium"),
-			NativeHostPath: filepath.Join(homeDir, ".config", "net.imput.helium", "NativeMessagingHosts"),
-		},
-	}
-
-	return browsers
-}
-
-// detectInstalledBrowsers returns a list of browsers that are installed on the system
-func detectInstalledBrowsers() []BrowserInfo {
-	var detected []BrowserInfo
-
-	for _, browser := range getSupportedBrowsers() {
-		if isBrowserInstalled(browser) {
-			detected = append(detected, browser)
-		}
-	}
-
-	return detected
-}
-
-// isBrowserInstalled checks if a browser is installed by looking for its config directory
-func isBrowserInstalled(browser BrowserInfo) bool {
-	if _, err := os.Stat(browser.ConfigPath); err == nil {
-		return true
-	}
-
-	// Also check if the browser executable exists in PATH
-	execName := strings.ToLower(browser.Name)
-	if execName == "zen browser" {
-		execName = "zen"
-	}
-
-	if _, err := exec.LookPath(execName); err == nil {
-		return true
-	}
-
-	return false
-}
-
-// installForBrowserInfo installs the native messaging manifest for a specific browser
-func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(browser.NativeHostPath, 0755); err != nil {
+// installForBrowser writes the native-messaging manifest for one browser.
+func installForBrowser(browser browsers.Browser, mediatorPath string) error {
+	dir := browser.ManifestDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create manifest directory: %v", err)
 	}
 
-	// Create manifest
-	manifest := createManifestForBrowser(browser, mediatorPath)
-
-	// Marshal to JSON
-	data, err := json.MarshalIndent(manifest, "", "  ")
+	data, err := json.MarshalIndent(createManifestForBrowser(browser, mediatorPath), "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %v", err)
 	}
 
-	// Write manifest file
-	manifestPath := filepath.Join(browser.NativeHostPath, config.NativeHostName+".json")
+	manifestPath := filepath.Join(dir, config.NativeHostName+".json")
 	if err := os.WriteFile(manifestPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write manifest: %v", err)
 	}
@@ -136,7 +42,7 @@ func installForBrowserInfo(browser BrowserInfo, mediatorPath string) error {
 }
 
 // createManifestForBrowser creates a native messaging manifest for the specified browser
-func createManifestForBrowser(browser BrowserInfo, mediatorPath string) *NativeMessagingManifest {
+func createManifestForBrowser(browser browsers.Browser, mediatorPath string) *NativeMessagingManifest {
 	manifest := &NativeMessagingManifest{
 		Name:        config.NativeHostName,
 		Description: "TabCtl native messaging host",
@@ -144,11 +50,12 @@ func createManifestForBrowser(browser BrowserInfo, mediatorPath string) *NativeM
 		Type:        "stdio",
 	}
 
-	switch browser.Type {
-	case "firefox":
+	switch browser.Family {
+	case browsers.Firefox:
 		manifest.AllowedExtensions = []string{config.ExtensionID}
-	case "chromium":
-		// Use Chrome Web Store extension ID
+	case browsers.Chromium:
+		// Every Chromium browser loads the same Chrome Web Store build, so
+		// they all share one origin.
 		manifest.AllowedOrigins = []string{
 			fmt.Sprintf("chrome-extension://%s/", config.ChromeID),
 		}
@@ -188,4 +95,3 @@ func findMediatorPath() (string, error) {
 
 	return "", fmt.Errorf("tabctl-mediator not found")
 }
-

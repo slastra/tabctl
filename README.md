@@ -5,7 +5,7 @@ Control browser tabs from the command line using D-Bus IPC.
 ## Features
 
 - **D-Bus Architecture** - Fast, reliable inter-process communication
-- **Multi-Browser Support** - Firefox, Zen, Chrome, Brave work simultaneously
+- **Multi-Browser Support** - Firefox, Zen, Chrome, Chromium, Brave, Brave Origin, and Helium work simultaneously
 - **Core Commands** - List, close, activate, and open tabs across browsers
 - **Desktop Switching** - Automatic window focus across virtual desktops
 - **Rofi Integration** - Quick tab switching with rofi scripts
@@ -50,7 +50,7 @@ old one after you rebuild.
 3. **Install the browser extension:**
 
 - Firefox / Zen: <https://addons.mozilla.org/en-US/firefox/addon/tabctl1/>
-- Chrome / Chromium / Brave / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
+- Chrome / Chromium / Brave / Brave Origin / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
 
 4. **Restart browser** to activate native messaging
 
@@ -220,7 +220,7 @@ is registered on it. In order of likelihood:
    launched by the browser through the extension. No extension means no
    mediator. Install it from the store:
    - Firefox / Zen: <https://addons.mozilla.org/en-US/firefox/addon/tabctl1/>
-   - Chrome / Chromium / Brave / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
+   - Chrome / Chromium / Brave / Brave Origin / Helium: <https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn>
 
    Note: loading the extension as a *temporary add-on* (about:debugging)
    only lasts until the browser restarts.

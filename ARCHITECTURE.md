@@ -265,6 +265,35 @@ Native messaging uses length-prefixed JSON:
 - CLI discovers all via D-Bus name listing
 - Commands can target one instance, every profile of a browser, or all
 
+### Supported-Browser Table (`internal/browsers`)
+
+One table defines every browser tabctl knows. Two consumers read it:
+`tabctl install` to decide where to write native-messaging manifests, and the
+mediator to decide what to call itself on the bus. They used to keep separate
+hand-written lists and drifted apart.
+
+Each row carries a display `Name`, an identity `Key`, a `Family`
+(firefox or chromium), the profile `ConfigDir`, and the executable names to
+probe on PATH. The manifest directory is derived from `ConfigDir`, never
+stored, so a path cannot be spelled two ways.
+
+`Name` and `Key` are separate on purpose. `Name` is for humans and may contain
+spaces. `Key` is the identity token that becomes a D-Bus name element, an
+object path element, and the lowercased tab-ID prefix, so it is restricted to
+`[A-Za-z_][A-Za-z0-9_]*` and must not end in a digit, which is reserved for the
+profile-instance suffix.
+
+Browser detection matches the parent process executable against the whole path,
+longest name first. Matching the basename is not enough: every Brave channel
+package ships its binary as `brave` under a channel-specific directory, so
+`/opt/brave-origin-bin/brave` is Brave Origin and `/opt/brave-bin/brave` is
+Brave. Longest-first also removes the unrecorded ordering the previous
+hand-written switch depended on, where `google-chrome` had to be tested before
+`chrome`.
+
+Brave's eight profile directories (Browser and Origin editions, each across
+stable, Beta, Nightly, and Development) are generated rather than typed out.
+
 ## Directory Structure
 
 ```
@@ -273,6 +302,7 @@ tabctl/
 │   ├── tabctl/              # CLI entry point
 │   └── tabctl-mediator/     # Mediator entry point
 ├── internal/
+│   ├── browsers/             # Supported-browser table & detection
 │   ├── cli/                 # Command implementations
 │   ├── client/               # D-Bus client & browser manager
 │   ├── config/               # Timeouts & extension IDs
@@ -339,8 +369,8 @@ Modern window managers (KDE, GNOME, etc.) respond by:
 2. Raising the window to the top
 3. Giving it keyboard focus
 
-### Chrome/Chromium/Brave
-Chrome-based browsers have more limited window focus capabilities:
+### Chromium Family
+Chromium-based browsers have more limited window focus capabilities:
 - `chrome.windows.update()` focuses the window if on current desktop
 - Does not trigger automatic desktop/workspace switching
 - User must manually switch to the appropriate desktop first

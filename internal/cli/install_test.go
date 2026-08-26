@@ -4,11 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tabctl/tabctl/internal/browsers"
 	"github.com/tabctl/tabctl/internal/config"
 )
 
 func TestCreateManifestFirefox(t *testing.T) {
-	b := BrowserInfo{Name: "Firefox", Type: "firefox"}
+	b := browsers.Browser{Name: "Firefox", Family: browsers.Firefox}
 	m := createManifestForBrowser(b, "/usr/bin/tabctl-mediator")
 
 	if m.Name != config.NativeHostName || m.Path != "/usr/bin/tabctl-mediator" || m.Type != "stdio" {
@@ -23,7 +24,7 @@ func TestCreateManifestFirefox(t *testing.T) {
 }
 
 func TestCreateManifestChromium(t *testing.T) {
-	b := BrowserInfo{Name: "Brave", Type: "chromium"}
+	b := browsers.Browser{Name: "Brave", Family: browsers.Chromium}
 	m := createManifestForBrowser(b, "/usr/bin/tabctl-mediator")
 
 	wantOrigin := "chrome-extension://" + config.ChromeID + "/"
@@ -36,30 +37,50 @@ func TestCreateManifestChromium(t *testing.T) {
 }
 
 func TestFilterBrowsersByTarget(t *testing.T) {
-	detected := []BrowserInfo{
-		{Name: "Firefox", Type: "firefox"},
-		{Name: "Zen Browser", Type: "firefox"},
-		{Name: "Brave", Type: "chromium"},
+	detected := []browsers.Browser{
+		{Name: "Firefox", Key: "Firefox", Family: browsers.Firefox},
+		{Name: "Zen Browser", Key: "Zen", Family: browsers.Firefox},
+		{Name: "Brave", Key: "Brave", Family: browsers.Chromium},
+		{Name: "Brave Origin", Key: "BraveOrigin", Family: browsers.Chromium},
+		{Name: "Brave Origin Beta", Key: "BraveOriginBeta", Family: browsers.Chromium},
 	}
 
 	t.Run("empty target selects all", func(t *testing.T) {
 		got, err := filterBrowsersByTarget(detected, "")
-		if err != nil || len(got) != 3 {
-			t.Fatalf("got %d browsers (err %v), want 3", len(got), err)
+		if err != nil || len(got) != len(detected) {
+			t.Fatalf("got %d browsers (err %v), want %d", len(got), err, len(detected))
 		}
 	})
 
 	t.Run("exact name match", func(t *testing.T) {
 		got, err := filterBrowsersByTarget(detected, "brave")
 		if err != nil || len(got) != 1 || got[0].Name != "Brave" {
-			t.Fatalf("got %v (err %v), want [Brave]", got, err)
+			t.Fatalf("got %v (err %v), want [Brave]", browserNames(got), err)
 		}
 	})
 
-	t.Run("first-word match", func(t *testing.T) {
+	// The old first-word matcher would have returned all three Brave rows
+	// here, silently installing for browsers the user did not name.
+	t.Run("brave does not sweep in Origin", func(t *testing.T) {
+		got, _ := filterBrowsersByTarget(detected, "Brave")
+		if len(got) != 1 {
+			t.Fatalf("--browser brave selected %v, want only Brave", browserNames(got))
+		}
+	})
+
+	t.Run("key match", func(t *testing.T) {
 		got, err := filterBrowsersByTarget(detected, "Zen")
 		if err != nil || len(got) != 1 || got[0].Name != "Zen Browser" {
-			t.Fatalf("got %v (err %v), want [Zen Browser]", got, err)
+			t.Fatalf("got %v (err %v), want [Zen Browser]", browserNames(got), err)
+		}
+	})
+
+	t.Run("multi-word name, with and without the space", func(t *testing.T) {
+		for _, target := range []string{"Brave Origin", "braveorigin", "BRAVEORIGIN"} {
+			got, err := filterBrowsersByTarget(detected, target)
+			if err != nil || len(got) != 1 || got[0].Key != "BraveOrigin" {
+				t.Errorf("target %q: got %v (err %v), want [Brave Origin]", target, browserNames(got), err)
+			}
 		}
 	})
 
