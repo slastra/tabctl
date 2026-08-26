@@ -93,6 +93,10 @@ browsers (e.g. Brave + Helium) stay distinguishable:
 - Examples: `firefox.1.2`, `helium.1874583011.1874583012`,
   `brave.999.42`, `chrome.123.45`
 
+Release channels and editions count as separate browsers, since they install
+side by side with their own profiles: `bravebeta.999.42`,
+`braveorigin.1207522592.1207522593`.
+
 Tab IDs are ephemeral. `list` prints them and `activate` or `close` consume
 them. Do not store them.
 
