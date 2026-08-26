@@ -48,7 +48,8 @@ Browser Extension ← Native Messaging → tabctl-mediator ← D-Bus → tabctl 
 - Claim the first free D-Bus instance name for its browser
 - Translate between native messaging and D-Bus protocols
 - Handle browser lifecycle (exit when browser closes)
-- Log errors to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`
+- Log errors to `$XDG_STATE_HOME/tabctl/mediator-<browser>.log`, rotated to
+  `.log.1` once it passes 8MB
   (default `~/.local/state/tabctl/`). Profiles of one browser share a file,
   so each line is prefixed with the instance that wrote it.
 

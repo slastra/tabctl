@@ -85,9 +85,27 @@ func defaultLogPath(browser string) string {
 	return filepath.Join(stateDir, "tabctl", fmt.Sprintf("mediator-%s.log", strings.ToLower(browser)))
 }
 
+// maxLogSize caps a single mediator log before it is rotated.
+//
+// The mediator normally writes two lines per browser session, so this is
+// generous. It exists because a mediator that dies on startup is relaunched by
+// the browser immediately and forever: the D-Bus name collision fixed in 2.2.0
+// produced 284k start/fail cycles and a 39MB log over one month, on a machine
+// whose owner never noticed. Any future startup failure has the same shape, so
+// cap the damage rather than trusting that it cannot recur.
+const maxLogSize = 8 << 20
+
+// openLogFile opens the mediator log, rotating it first if it has grown past
+// maxLogSize. One previous generation is kept as "<path>.1" so the run that
+// caused the growth is still diagnosable.
 func openLogFile(path string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
+	}
+	if fi, err := os.Stat(path); err == nil && fi.Size() > maxLogSize {
+		// A failed rotation must not stop the mediator from running, so the
+		// error is deliberately ignored: the worst case is an oversized log.
+		_ = os.Rename(path, path+".1")
 	}
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 }
