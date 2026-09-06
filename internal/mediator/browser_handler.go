@@ -41,6 +41,10 @@ func (h *DBusHandler) ActivateTab(tabID int32, focused bool) error {
 	return h.api.ActivateTab(int(tabID), focused)
 }
 
+func (h *DBusHandler) NavigateTab(tabID int32, url string) error {
+	return h.api.NavigateTab(int(tabID), url)
+}
+
 func (h *DBusHandler) CloseTabs(tabIDs []int32) error {
 	ids := make([]int, len(tabIDs))
 	for i, id := range tabIDs {

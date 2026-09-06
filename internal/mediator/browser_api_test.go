@@ -114,6 +114,22 @@ func TestActivateTab(t *testing.T) {
 	}
 }
 
+func TestNavigateTab(t *testing.T) {
+	mock := newMockTransport(echoResult(nil))
+	api := NewBrowserAPI(mock)
+
+	if err := api.NavigateTab(123, "https://a.example"); err != nil {
+		t.Fatalf("NavigateTab failed: %v", err)
+	}
+	reqs := mock.sentRequests()
+	if len(reqs) != 1 || reqs[0].Method != MethodNavigateTab {
+		t.Fatalf("unexpected request: %+v", reqs)
+	}
+	if reqs[0].Params["tab_id"] != 123 || reqs[0].Params["url"] != "https://a.example" {
+		t.Errorf("params: got %+v", reqs[0].Params)
+	}
+}
+
 func TestCloseTabs(t *testing.T) {
 	mock := newMockTransport(echoResult(nil))
 	api := NewBrowserAPI(mock)

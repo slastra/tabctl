@@ -52,3 +52,21 @@ func TestHandlerOpenTab(t *testing.T) {
 		t.Errorf("got window=%d tab=%d, want 5/99", win, tab)
 	}
 }
+
+// TestHandlerNavigateTab verifies the int32 tab ID and the URL reach the
+// extension under the navigate_tab method.
+func TestHandlerNavigateTab(t *testing.T) {
+	mock := newMockTransport(echoResult(nil))
+	handler := NewDBusHandler(NewBrowserAPI(mock))
+
+	if err := handler.NavigateTab(42, "https://example.com"); err != nil {
+		t.Fatalf("NavigateTab failed: %v", err)
+	}
+	reqs := mock.sentRequests()
+	if len(reqs) != 1 || reqs[0].Method != MethodNavigateTab {
+		t.Fatalf("unexpected requests: %+v", reqs)
+	}
+	if reqs[0].Params["tab_id"] != 42 || reqs[0].Params["url"] != "https://example.com" {
+		t.Errorf("params: got %+v", reqs[0].Params)
+	}
+}
