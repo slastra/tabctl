@@ -222,6 +222,49 @@ for (const kind of ['chrome', 'firefox']) {
     assert.ok(resp && resp.error);
   });
 
+  test(`${kind}: navigate_tab loads the url in place and returns null`, async () => {
+    const updates = [];
+    const port = loadBundle(kind, {
+      query: () => Promise.resolve([]),
+      update: (tabId, props) => { updates.push([tabId, props]); return Promise.resolve({ id: tabId }); },
+    });
+    port.emit({ jsonrpc: '2.0', id: 30, method: 'navigate_tab', params: { tab_id: 123, url: 'https://a.example' } });
+    await tick();
+    const resp = port.sent.find((m) => m.id === 30);
+    assert.ok(resp && 'result' in resp && resp.result === null, 'expected a null result');
+    // The existing tab is updated; nothing is created or removed.
+    assert.equal(updates.length, 1, 'exactly one tabs.update call');
+    assert.equal(updates[0][0], 123);
+    assert.equal(updates[0][1].url, 'https://a.example');
+    // Only the url changes: active, pinned and index are left to the browser.
+    assert.deepEqual(Object.keys(updates[0][1]), ['url']);
+  });
+
+  test(`${kind}: navigate_tab failure propagates`, async () => {
+    const port = loadBundle(kind, {
+      query: () => Promise.resolve([]),
+      update: () => Promise.reject(new Error('no tab with id 999')),
+    });
+    port.emit({ jsonrpc: '2.0', id: 31, method: 'navigate_tab', params: { tab_id: 999, url: 'https://a.example' } });
+    await tick();
+    const resp = port.sent.find((m) => m.id === 31);
+    assert.ok(resp && resp.error, 'expected an error response');
+    assert.match(resp.error.message, /no tab with id 999/);
+  });
+
+  test(`${kind}: navigate_tab rejects a missing url without touching the tab`, async () => {
+    let touched = 0;
+    const port = loadBundle(kind, {
+      query: () => Promise.resolve([]),
+      update: () => { touched += 1; return Promise.resolve({}); },
+    });
+    port.emit({ jsonrpc: '2.0', id: 32, method: 'navigate_tab', params: { tab_id: 123 } });
+    await tick();
+    const resp = port.sent.find((m) => m.id === 32);
+    assert.ok(resp && resp.error, 'expected an error response');
+    assert.equal(touched, 0, 'a rejected request must not reach the tabs API');
+  });
+
   test(`${kind}: unknown method returns an error`, async () => {
     const port = loadBundle(kind, { query: () => Promise.resolve([]) });
     port.emit({ jsonrpc: '2.0', id: 11, method: 'no_such_method' });

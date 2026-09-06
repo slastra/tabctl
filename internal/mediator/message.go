@@ -24,6 +24,7 @@ const (
 	MethodListTabs    = "list_tabs"
 	MethodCloseTabs   = "close_tabs"
 	MethodActivateTab = "activate_tab"
+	MethodNavigateTab = "navigate_tab"
 	MethodOpenURLs    = "open_urls"
 	// MethodTabsChanged is an extension→mediator notification (no id, no
 	// reply): the browser's tab set changed in some way. Fan-out only —

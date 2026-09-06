@@ -69,6 +69,9 @@ tabctl list
 # Activate a specific tab
 tabctl activate firefox.1.234
 
+# Load a URL in an existing tab
+tabctl navigate firefox.1.234 https://github.com
+
 # Close multiple tabs
 tabctl close firefox.1.234 firefox.1.235
 

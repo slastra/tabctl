@@ -201,6 +201,14 @@ func (r *BrowserAPI) ActivateTab(tabID int, focused bool) error {
 	return nil
 }
 
+// NavigateTab loads url in the tab with the given numeric ID, in place.
+func (r *BrowserAPI) NavigateTab(tabID int, url string) error {
+	if _, err := r.sendCommand(MethodNavigateTab, map[string]interface{}{"tab_id": tabID, "url": url}); err != nil {
+		return fmt.Errorf("failed to communicate with browser extension: %w", err)
+	}
+	return nil
+}
+
 // OpenURLs opens the given URLs in new tabs and returns their data.
 func (r *BrowserAPI) OpenURLs(urls []string) ([]TabData, error) {
 	raw, err := r.sendCommand(MethodOpenURLs, map[string]interface{}{"urls": urls})

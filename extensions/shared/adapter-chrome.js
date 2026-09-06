@@ -16,6 +16,7 @@ const browserTabs = {
   activate: (tabId, focused) =>
     chrome.tabs.update(tabId, { active: true }).then(tab =>
       focused ? chrome.windows.update(tab.windowId, { focused: true }) : tab),
+  navigate: (tabId, url) => chrome.tabs.update(tabId, { url: url }),
 };
 
 // --- MV3 service worker keepalive / revival ---
