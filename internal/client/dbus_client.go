@@ -93,6 +93,13 @@ func (c *DBusClient) ActivateTab(tabID int, focused bool) error {
 	return c.client.ActivateTab(ctx, c.browser, int32(tabID), focused)
 }
 
+func (c *DBusClient) NavigateTab(tabID int, url string) error {
+	ctx, cancel := config.CommandContext()
+	defer cancel()
+
+	return c.client.NavigateTab(ctx, c.browser, int32(tabID), url)
+}
+
 func (c *DBusClient) OpenTab(url string) (types.Tab, error) {
 	ctx, cancel := config.CommandContext()
 	defer cancel()

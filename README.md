@@ -6,7 +6,7 @@ Control browser tabs from the command line using D-Bus IPC.
 
 - **D-Bus Architecture** - Fast, reliable inter-process communication
 - **Multi-Browser Support** - Firefox, Zen, Chrome, Chromium, Brave, Brave Origin, and Helium work simultaneously
-- **Core Commands** - List, close, activate, and open tabs across browsers
+- **Core Commands** - List, close, activate, navigate, and open tabs across browsers
 - **Desktop Switching** - Automatic window focus across virtual desktops
 - **Rofi Integration** - Quick tab switching with rofi scripts
 - **Multiple Output Formats** - TSV, JSON, simple
@@ -71,6 +71,10 @@ tabctl activate firefox.1.2          # Firefox tab
 tabctl activate brave.1234.5678      # Brave tab
 tabctl activate helium.1874583011.1874583012  # Helium tab
 
+# Load a URL in an existing tab (keeps its position, pin and history)
+tabctl navigate firefox.1.2 https://example.com
+tabctl navigate firefox.1.2 https://example.com && tabctl activate --focused firefox.1.2
+
 # Close tabs
 tabctl close firefox.1.2 firefox.1.3
 echo "brave.1234.5678" | tabctl close
@@ -97,8 +101,8 @@ Release channels and editions count as separate browsers, since they install
 side by side with their own profiles: `bravebeta.999.42`,
 `braveorigin.1207522592.1207522593`.
 
-Tab IDs are ephemeral. `list` prints them and `activate` or `close` consume
-them. Do not store them.
+Tab IDs are ephemeral. `list` prints them and `activate`, `navigate` or
+`close` consume them. Do not store them.
 
 ### Multiple Browser Profiles
 

@@ -22,6 +22,7 @@ type Server struct {
 type BrowserHandler interface {
 	ListTabs() ([]TabInfoWithIcon, error)
 	ActivateTab(tabID int32, focused bool) error
+	NavigateTab(tabID int32, url string) error
 	CloseTabs(tabIDs []int32) error
 	OpenTab(url string) (windowID, tabID int32, err error)
 	GetInfo() Info
@@ -133,6 +134,13 @@ func (s *Server) ActivateTab(tabID int32, focused bool) *dbus.Error {
 	return nil
 }
 
+func (s *Server) NavigateTab(tabID int32, url string) *dbus.Error {
+	if err := s.handler.NavigateTab(tabID, url); err != nil {
+		return dbus.MakeFailedError(err)
+	}
+	return nil
+}
+
 func (s *Server) CloseTabs(tabIDs []int32) *dbus.Error {
 	if err := s.handler.CloseTabs(tabIDs); err != nil {
 		return dbus.MakeFailedError(err)
@@ -175,6 +183,10 @@ func generateIntrospection() string {
 		<method name="ActivateTab">
 			<arg direction="in" type="i" name="tab_id" />
 			<arg direction="in" type="b" name="focused" />
+		</method>
+		<method name="NavigateTab">
+			<arg direction="in" type="i" name="tab_id" />
+			<arg direction="in" type="s" name="url" />
 		</method>
 		<method name="CloseTabs">
 			<arg direction="in" type="ai" name="tab_ids" />

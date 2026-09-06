@@ -19,8 +19,8 @@ var rootCmd = &cobra.Command{
 	Short:   "Control your browser's tabs from the command line",
 	Version: config.Version,
 	Long: `tabctl (tab control) is a command-line tool that helps you manage
-browser tabs via D-Bus. It can list, close, activate, and open tabs across
-Firefox and Chrome-based browsers.`,
+browser tabs via D-Bus. It can list, close, activate, navigate, and open tabs
+across Firefox and Chrome-based browsers.`,
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
@@ -47,6 +47,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(closeCmd)
 	rootCmd.AddCommand(activateCmd)
+	rootCmd.AddCommand(navigateCmd)
 	rootCmd.AddCommand(openCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(installCmd)

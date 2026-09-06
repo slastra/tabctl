@@ -15,6 +15,7 @@ const browserTabs = {
   activate: (tabId, focused) =>
     browser.tabs.update(tabId, { active: true }).then(tab =>
       focused ? browser.windows.update(tab.windowId, { focused: true }) : tab),
+  navigate: (tabId, url) => browser.tabs.update(tabId, { url: url }),
 };
 
 // --- core.js follows ---

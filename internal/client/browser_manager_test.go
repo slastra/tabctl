@@ -15,6 +15,7 @@ type fakeClient struct {
 	closeErr  error
 	closed    [][]int
 	activated []int
+	navigated []string
 	opened    []string
 }
 
@@ -30,6 +31,11 @@ func (f *fakeClient) CloseTabs(tabIDs []int) error {
 
 func (f *fakeClient) ActivateTab(tabID int, focused bool) error {
 	f.activated = append(f.activated, tabID)
+	return nil
+}
+
+func (f *fakeClient) NavigateTab(tabID int, url string) error {
+	f.navigated = append(f.navigated, fmt.Sprintf("%d=%s", tabID, url))
 	return nil
 }
 
@@ -113,6 +119,29 @@ func TestActivateTabRouting(t *testing.T) {
 
 	if err := bm.ActivateTab("zen.1.1", false); err == nil {
 		t.Error("expected error for unroutable tab, got nil")
+	}
+}
+
+func TestNavigateTabRouting(t *testing.T) {
+	firefox := &fakeClient{prefix: "firefox."}
+	chrome := &fakeClient{prefix: "chrome."}
+	bm := &BrowserManager{clients: []api.Client{firefox, chrome}}
+
+	if err := bm.NavigateTab("chrome.1.5", "https://a.example"); err != nil {
+		t.Fatalf("NavigateTab failed: %v", err)
+	}
+	if len(chrome.navigated) != 1 || chrome.navigated[0] != "5=https://a.example" {
+		t.Errorf("chrome navigated %v, want [5=https://a.example]", chrome.navigated)
+	}
+	if len(firefox.navigated) != 0 {
+		t.Errorf("firefox should not have been called, got %v", firefox.navigated)
+	}
+
+	if err := bm.NavigateTab("zen.1.1", "https://a.example"); err == nil {
+		t.Error("expected error for unroutable tab, got nil")
+	}
+	if err := bm.NavigateTab("chrome.1.x", "https://a.example"); err == nil {
+		t.Error("expected error for a non-numeric tab ID, got nil")
 	}
 }
 

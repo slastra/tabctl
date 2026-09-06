@@ -9,6 +9,7 @@ type Client interface {
 	ListTabs() ([]types.Tab, error)
 	CloseTabs(tabIDs []int) error
 	ActivateTab(tabID int, focused bool) error
+	NavigateTab(tabID int, url string) error
 	OpenTab(url string) (types.Tab, error)
 	GetPrefix() string
 	Info() (Info, error)

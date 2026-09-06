@@ -133,6 +133,23 @@ func (c *Client) ActivateTab(ctx context.Context, browser string, tabID int32, f
 	return nil
 }
 
+// NavigateTab loads url in the tab, in place.
+//
+// Unlike ListTabsWithIcons there is nothing to fall back to: a mediator that
+// predates the method cannot navigate at all. The raw "UnknownMethod" reply
+// is translated into the fix, since the usual cause is a mediator process
+// that outlived the package upgrade (see ListTabsWithIcons).
+func (c *Client) NavigateTab(ctx context.Context, browser string, tabID int32, url string) error {
+	call := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".NavigateTab", 0, tabID, url)
+	if call.Err != nil {
+		if isUnknownMethod(call.Err) {
+			return fmt.Errorf("the running %s mediator predates the navigate command; restart the browser so it launches the updated tabctl-mediator", browser)
+		}
+		return wrapTimeoutError(call.Err, "NavigateTab")
+	}
+	return nil
+}
+
 func (c *Client) CloseTabs(ctx context.Context, browser string, tabIDs []int32) error {
 	call := c.obj(browser).CallWithContext(ctx, InterfaceBrowser+".CloseTabs", 0, tabIDs)
 	if call.Err != nil {

@@ -6,6 +6,7 @@
 //                         close(tabIds)            -> Promise<void>
 //                         create(createOptions)    -> Promise<Tab>
 //                         activate(tabId, focused) -> Promise<any>
+//                         navigate(tabId, url)     -> Promise<any>
 // Adapters MUST NOT call core functions at top level (const TDZ under
 // concatenation); they may only register event listeners. connect() at the
 // bottom of this file is the single startup entry point.
@@ -113,6 +114,16 @@ function activateTab(id, tabId, focused) {
     err => sendError(id, 'Failed to activate tab ' + tabId + ': ' + errMsg(err)));
 }
 
+// Load a URL in an existing tab. The tab keeps its index, pinned state and
+// history; this is what distinguishes it from open_urls + close_tabs.
+function navigateTab(id, tabId, url) {
+  if (typeof tabId !== 'number') { sendError(id, 'Invalid tab_id: ' + tabId); return; }
+  if (typeof url !== 'string' || url === '') { sendError(id, 'Invalid url: ' + url); return; }
+  browserTabs.navigate(tabId, url).then(
+    () => sendResult(id, null),
+    err => sendError(id, 'Failed to navigate tab ' + tabId + ': ' + errMsg(err)));
+}
+
 function openUrls(id, urls) {
   if (!Array.isArray(urls)) { sendError(id, 'Invalid urls parameter'); return; }
   if (urls.length === 0) { sendResult(id, []); return; }
@@ -185,6 +196,7 @@ function handleMessage(msg) {
     case 'list_tabs':    listTabs(id); break;
     case 'close_tabs':   closeTabs(id, params.tab_ids); break;
     case 'activate_tab': activateTab(id, params.tab_id, !!params.focused); break;
+    case 'navigate_tab': navigateTab(id, params.tab_id, params.url); break;
     case 'open_urls':    openUrls(id, params.urls); break;
     default:
       if (id !== undefined) { sendError(id, 'Unknown method: ' + msg.method); }

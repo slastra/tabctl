@@ -75,6 +75,7 @@ type BrowserServer interface {
 	ListTabs() ([]TabInfo, *dbus.Error)
 	ListTabsWithIcons() ([]TabInfoWithIcon, *dbus.Error)
 	ActivateTab(tabID int32, focused bool) *dbus.Error
+	NavigateTab(tabID int32, url string) *dbus.Error
 	CloseTabs(tabIDs []int32) *dbus.Error
 	OpenTab(url string) (int32, int32, *dbus.Error)
 	GetInfo() (string, string, int32, int32, bool, *dbus.Error)

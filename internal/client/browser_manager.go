@@ -163,6 +163,20 @@ func (bm *BrowserManager) ActivateTab(userID string, focused bool) error {
 	return fmt.Errorf("no connected browser for tab %s", userID)
 }
 
+// NavigateTab loads url in the tab with the given user-facing ID, in place.
+func (bm *BrowserManager) NavigateTab(userID, url string) error {
+	for _, client := range bm.clients {
+		if strings.HasPrefix(userID, client.GetPrefix()) {
+			n, err := numericTabID(userID)
+			if err != nil {
+				return fmt.Errorf("invalid tab ID %q", userID)
+			}
+			return client.NavigateTab(n, url)
+		}
+	}
+	return fmt.Errorf("no connected browser for tab %s", userID)
+}
+
 // OpenURLs opens the given URLs in the connected browser and returns the new
 // user-facing tab IDs. With more than one browser connected, the caller must
 // narrow the target with --browser.

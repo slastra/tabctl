@@ -34,7 +34,7 @@ def spawn_extension(hello_protocol, handlers):
     """Start a mediator wired to a scripted extension. Returns (proc, state)."""
     med = subprocess.Popen(MED_ARGS, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     wf = frame_writer(med.stdin)
-    state = {"closed": [], "activated": []}
+    state = {"closed": [], "activated": [], "navigated": []}
 
     def loop():
         while True:
@@ -90,6 +90,9 @@ def handlers_for(tabs):
         elif method == "activate_tab":
             state["activated"].append((params.get("tab_id"), params.get("focused")))
             wf({"jsonrpc": "2.0", "id": mid, "result": None})
+        elif method == "navigate_tab":
+            state["navigated"].append((params.get("tab_id"), params.get("url")))
+            wf({"jsonrpc": "2.0", "id": mid, "result": None})
         elif method == "close_tabs":
             state["closed"].extend(params.get("tab_ids", []))
             wf({"jsonrpc": "2.0", "id": mid, "result": None})
@@ -111,6 +114,9 @@ try:
     check("json id + windowId", any(t["id"] == "firefox.1.11" for t in data) and data[0]["windowId"] == 1, r.stdout)
     check("activate ok", run("activate", "firefox.1.10").returncode == 0)
     check("open prints firefox.1.99", "firefox.1.99" in run("open", "https://new.example").stdout)
+    check("navigate ok", run("navigate", "firefox.1.10", "https://nav.example").returncode == 0)
+    check("navigate carried tab + url", (10, "https://nav.example") in state["navigated"], str(state["navigated"]))
+    check("navigate rejects an empty url", run("navigate", "firefox.1.10", "").returncode != 0)
     check("close ok", run("close", "firefox.1.11").returncode == 0)
     check("close routed numeric 11", 11 in state["closed"], str(state["closed"]))
     s = run("status")
@@ -195,6 +201,11 @@ try:
 
     check("activate routes back to profile 1", run("activate", "firefox.1.10").returncode == 0)
     check("profile 1 received its own activate", (10, False) in state1["activated"], str(state1["activated"]))
+
+    check("navigate routes to the owning profile",
+          run("navigate", "firefox2.7.70", "https://p2nav.example").returncode == 0)
+    check("profile 2 received the navigate", (70, "https://p2nav.example") in state2["navigated"], str(state2["navigated"]))
+    check("profile 1 did not see the navigate", state1["navigated"] == [], str(state1["navigated"]))
 
     check("close routes to the right profile", run("close", "firefox2.7.70").returncode == 0)
     check("profile 2 received the close", 70 in state2["closed"], str(state2["closed"]))
