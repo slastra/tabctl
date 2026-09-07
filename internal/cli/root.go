@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	outputFormat  string = "tsv"  // Output format: tsv, json, simple
-	delimiter     string = "\t"   // Field delimiter
-	targetBrowser string = ""     // Target specific browser (empty = all)
+	outputFormat  string = "tsv" // Output format: tsv, json, simple
+	delimiter     string = "\t"  // Field delimiter
+	targetBrowser string = ""    // Target specific browser (empty = all)
 )
 
 // rootCmd represents the base command when called without any subcommands

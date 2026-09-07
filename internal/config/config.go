@@ -24,7 +24,7 @@ func CommandContext() (context.Context, context.CancelFunc) {
 // Native messaging host names
 const (
 	NativeHostName = "tabctl_mediator"
-	ExtensionID    = "tabctl@slastra.github.io"   // Firefox
+	ExtensionID    = "tabctl@slastra.github.io"         // Firefox
 	ChromeID       = "baomblllgemcgbignhpbipgiofmjdhpn" // Chrome/Chromium/Brave
 )
 
@@ -34,4 +34,3 @@ var Version = "dev"
 // ProtocolVersion is the native-messaging protocol version the mediator and
 // extension must agree on. Bumped only on breaking wire changes.
 const ProtocolVersion = 2
-
