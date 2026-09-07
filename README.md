@@ -185,12 +185,18 @@ it and reopens the menu, so you can clear several tabs in a row.
 
 Tools built on tabctl:
 
-- [tabstrip](https://github.com/slastra/tabstrip). A waybar tab strip for
+- [tabstrip](https://github.com/slastra/tabstrip). A tab strip daemon for
   Hyprland. It shows the tabs of every browser window on the current
   workspace as clickable chips with favicons. It reads tabctl over D-Bus and
-  updates live on the `TabsUpdated` signal.
+  updates live on the `TabsUpdated` signal. It feeds waybar and Quickshell
+  from the same snapshot.
+- [lastshell](https://github.com/slastra/lastshell). A Quickshell desktop
+  shell whose bottom bar renders the tabstrip snapshot as a live tab strip,
+  clicks and scroll included.
 - [vicinae-tabctl](https://github.com/brpaz/vicinae-tabctl). A Vicinae
   launcher extension for switching tabs through tabctl.
+- [dms-tabs-launcher](https://github.com/kmf/dms-tabs-launcher). A
+  DankMaterialShell plugin that lists and activates tabs, grouped by browser.
 
 ## Architecture
 
