@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -98,17 +99,69 @@ const maxLogSize = 8 << 20
 // openLogFile opens the mediator log, rotating it first if it has grown past
 // maxLogSize. One previous generation is kept as "<path>.1" so the run that
 // caused the growth is still diagnosable.
+//
+// The log is named per browser, not per profile, so every profile's mediator
+// shares this file and several can arrive here at once. Rotation therefore
+// takes an exclusive lock on the file and re-checks that the inode it locked
+// is still the one at path: without that, two mediators in the same startup
+// loop both see an oversized log, and the second renames the empty file the
+// first just created over the generation the first just saved, losing both.
+//
+// Every failure below is deliberately ignored. Logging must never stop the
+// mediator from starting, and the worst case is an oversized log.
 func openLogFile(path string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	if fi, err := os.Stat(path); err == nil && fi.Size() > maxLogSize {
-		// A failed rotation must not stop the mediator from running, so the
-		// error is deliberately ignored: the worst case is an oversized log.
-		_ = os.Rename(path, path+".1")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return nil, err
 	}
-	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	rotated, err := rotate(f, path)
+	if err != nil {
+		return f, nil
+	}
+	return rotated, nil
 }
+
+// rotate renames path to "<path>.1" and returns a handle on the fresh file if
+// f has outgrown maxLogSize. It returns an error when it did not rotate, so
+// the caller keeps the handle it already has.
+func rotate(f *os.File, path string) (*os.File, error) {
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return nil, err
+	}
+	// Closing f below releases the lock, so unlocking here would be wrong;
+	// the only path that keeps f unlocks explicitly.
+	unlock := func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }
+
+	fi, err := f.Stat()
+	if err != nil || fi.Size() <= maxLogSize {
+		unlock()
+		return nil, errNoRotation
+	}
+	// A sibling that rotated while we waited for the lock has already moved
+	// our inode aside. Renaming now would clobber what it saved.
+	if cur, err := os.Stat(path); err != nil || !os.SameFile(cur, fi) {
+		unlock()
+		return nil, errNoRotation
+	}
+	if err := os.Rename(path, path+".1"); err != nil {
+		unlock()
+		return nil, err
+	}
+	fresh, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		unlock()
+		return nil, err
+	}
+	f.Close()
+	return fresh, nil
+}
+
+// errNoRotation reports that the log did not need rotating. It is never shown
+// to the user; openLogFile only distinguishes rotated from not.
+var errNoRotation = errors.New("log does not need rotation")
 
 // detectBrowser identifies which browser launched this mediator. The rules
 // live in internal/browsers, alongside the table that decides where `tabctl

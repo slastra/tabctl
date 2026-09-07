@@ -245,7 +245,7 @@ busctl --user list | grep -i tabctl
 pgrep -af tabctl-mediator
 
 # What does the mediator log say?
-tail ~/.local/state/tabctl/mediator-*.log
+tail ~/.local/state/tabctl/mediator-*.log*
 ```
 
 A different error, `cannot connect to D-Bus session bus`, means the
@@ -276,6 +276,10 @@ session bus itself is unreachable. Check `DBUS_SESSION_BUS_ADDRESS`.
    ```bash
    tail -f ~/.local/state/tabctl/mediator-firefox.log
    ```
+
+   The log is capped at 8MB. Once it passes that, the previous generation
+   is kept alongside it as `mediator-firefox.log.1`, so a startup crash
+   loop that filled the log is still readable there.
 
 ## Building from Source
 
