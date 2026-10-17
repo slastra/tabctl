@@ -16,13 +16,20 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build binaries (linux-amd64)
+      # Bare binaries keep their historical names. The tarball restores the
+      # tabctl-linux-<arch>-<tag>.tar.gz asset that v1.1.x published and v1.2.0
+      # dropped; downstream installers (an Ansible role) still fetch that name
+      # and expect both binaries at the archive root.
+      - name: Build binaries (linux-amd64, linux-arm64)
         run: |
           mkdir -p dist
           VERSION="${GITHUB_REF_NAME#v}"
           LDFLAGS="-s -w -X github.com/tabctl/tabctl/internal/config.Version=$VERSION"
-          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/tabctl-linux-amd64 ./cmd/tabctl
-          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/tabctl-mediator-linux-amd64 ./cmd/tabctl-mediator
+          for ARCH in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -trimpath -ldflags="$LDFLAGS" -o dist/tabctl-linux-$ARCH ./cmd/tabctl
+            CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -trimpath -ldflags="$LDFLAGS" -o dist/tabctl-mediator-linux-$ARCH ./cmd/tabctl-mediator
+            tar -czf "dist/tabctl-linux-$ARCH-${GITHUB_REF_NAME}.tar.gz" -C dist "tabctl-linux-$ARCH" "tabctl-mediator-linux-$ARCH"
+          done
 
       # Store zips only; CRX signing needs the private key, which stays offline
       - name: Package extensions
@@ -36,6 +43,21 @@ jobs:
           sha=$(curl -sL "https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz" | sha256sum | cut -d' ' -f1)
           echo "AUR sha256sums for ${GITHUB_REF_NAME}: $sha" | tee dist/aur-sha256.txt
           echo "TARBALL_SHA256=$sha" >> "$GITHUB_ENV"
+
+      # v1.1.4's tarball shipped the Chrome signing key. Fail the release if
+      # any key material reaches dist/, whether loose or inside an archive.
+      - name: Refuse to publish key material
+        run: |
+          set -o pipefail
+          leaks=$(
+            { ls dist
+              for f in dist/*.tar.gz; do tar -tzf "$f"; done
+              for f in dist/*.zip; do unzip -Z1 "$f"; done
+            } | grep -iE '\.(pem|key|p12|crx)$|private' || true
+          )
+          if [ -n "$leaks" ]; then
+            echo "::error::key material in release assets:"; echo "$leaks"; exit 1
+          fi
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
