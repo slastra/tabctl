@@ -23,7 +23,7 @@ install=tabctl.install
 
 pkgver() {
     cd "tabctl"
-    printf "2.3.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    printf "2.3.1.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
