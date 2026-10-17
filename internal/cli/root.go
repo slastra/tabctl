@@ -24,6 +24,13 @@ across Firefox and Chrome-based browsers.`,
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
+	// Cobra validates arguments before this hook runs, so a malformed
+	// invocation still prints usage. Past that point a failure is about the
+	// browser ("no connected browser for tab ..."), and the usage block buried
+	// that one line under fifteen lines of flags.
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		cmd.SilenceUsage = true
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			fmt.Println("No command has been specified")
