@@ -90,6 +90,7 @@ tabctl status
 ## Documentation
 
 - [Architecture Overview](./ARCHITECTURE.html) - Technical design and implementation details
+- [Compatibility](./COMPATIBILITY.html) - What tools built on tabctl can rely on
 - [Privacy Policy](./PRIVACY-POLICY.html) - Our commitment to your privacy
 - [GitHub Repository](https://github.com/slastra/tabctl) - Source code and issue tracking
 

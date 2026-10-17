@@ -164,6 +164,10 @@ handle both. The `tsv` and `simple` formats are positional and unchanged.
 
 ## Related Projects
 
+Building on tabctl? [COMPATIBILITY.md](COMPATIBILITY.md) lists what stays
+stable across releases (output formats, exit statuses, tab IDs, the D-Bus
+interface, release asset names) and what may change.
+
 Tools built on tabctl, including tab switchers and launchers:
 
 - [tabstrip](https://github.com/slastra/tabstrip). A tab strip daemon for

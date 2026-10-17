@@ -28,6 +28,7 @@ minima:
 header_pages:
   - index.md
   - ARCHITECTURE.md
+  - COMPATIBILITY.md
   - PRIVACY-POLICY.md
 
 # Exclude files from processing
@@ -43,6 +44,7 @@ exclude:
   - scripts/
   - extensions/
   - packaging/
+  - testdata/
   - "*.go"
   - go.mod
   - go.sum
