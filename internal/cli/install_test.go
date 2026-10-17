@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -90,4 +92,40 @@ func TestFilterBrowsersByTarget(t *testing.T) {
 			t.Errorf("want error listing detected browsers, got %v", err)
 		}
 	})
+}
+
+func TestUninstallRemovesOnlyOurManifest(t *testing.T) {
+	root := t.TempDir()
+	withManifest := browsers.Browser{Name: "Brave Beta", Family: browsers.Chromium, ConfigDir: filepath.Join(root, "brave-beta")}
+	without := browsers.Browser{Name: "Zen Browser", Family: browsers.Firefox, ConfigDir: filepath.Join(root, "zen")}
+
+	if err := installForBrowser(withManifest, "/usr/bin/tabctl-mediator"); err != nil {
+		t.Fatal(err)
+	}
+	// Another host's manifest in the same directory must survive.
+	other := filepath.Join(withManifest.ManifestDir(), "com.1password.1password.json")
+	if err := os.WriteFile(other, []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := uninstallFrom([]browsers.Browser{withManifest, without})
+	if err != nil {
+		t.Fatalf("uninstallFrom: %v", err)
+	}
+	want := filepath.Join(withManifest.ManifestDir(), config.NativeHostName+".json")
+	if len(removed) != 1 || removed[0] != want {
+		t.Errorf("removed = %v, want [%s]", removed, want)
+	}
+	if _, err := os.Stat(want); !os.IsNotExist(err) {
+		t.Errorf("manifest still present: %v", err)
+	}
+	if _, err := os.Stat(other); err != nil {
+		t.Errorf("unrelated manifest was touched: %v", err)
+	}
+
+	// Running it again is a no-op, not an error.
+	removed, err = uninstallFrom([]browsers.Browser{withManifest, without})
+	if err != nil || len(removed) != 0 {
+		t.Errorf("second run: removed %v, err %v; want nothing, nil", removed, err)
+	}
 }

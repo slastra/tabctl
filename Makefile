@@ -114,13 +114,8 @@ clean: ## Clean build artifacts
 install-mediator: build ## Install native messaging mediator
 	./$(BUILD_DIR)/$(BINARY_NAME) install
 
-uninstall-mediator: ## Uninstall native messaging mediator
-	@echo "Removing native messaging hosts..."
-	@rm -f ~/.mozilla/native-messaging-hosts/tabctl_mediator.json
-	@rm -f ~/.config/chromium/NativeMessagingHosts/tabctl_mediator.json
-	@rm -f ~/.config/google-chrome/NativeMessagingHosts/tabctl_mediator.json
-	@rm -f ~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/tabctl_mediator.json
-	@rm -f ~/.config/net.imput.helium/NativeMessagingHosts/tabctl_mediator.json
+uninstall-mediator: build ## Uninstall native messaging mediator from every browser
+	./$(BUILD_DIR)/$(BINARY_NAME) uninstall
 
 ##@ Tools
 

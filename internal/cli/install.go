@@ -71,7 +71,7 @@ func filterBrowsersByTarget(detected []browsers.Browser, target string) ([]brows
 		}
 	}
 	if len(selected) == 0 {
-		return nil, fmt.Errorf("no detected browser matches %q (detected: %s)", target, strings.Join(browserNames(detected), ", "))
+		return nil, fmt.Errorf("no browser matches %q (choices: %s)", target, strings.Join(browserNames(detected), ", "))
 	}
 	return selected, nil
 }
