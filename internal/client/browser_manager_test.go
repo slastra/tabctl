@@ -26,6 +26,8 @@ type fakeClient struct {
 	// reporting the call on entered.
 	listGate chan struct{}
 	entered  chan<- string
+
+	infoErr error
 }
 
 func (f *fakeClient) ListTabs() ([]types.Tab, error) {
@@ -62,6 +64,9 @@ func (f *fakeClient) OpenTab(url string) (types.Tab, error) {
 func (f *fakeClient) GetPrefix() string { return f.prefix }
 
 func (f *fakeClient) Info() (api.Info, error) {
+	if f.infoErr != nil {
+		return api.Info{}, f.infoErr
+	}
 	return api.Info{Browser: strings.TrimSuffix(f.prefix, ".")}, nil
 }
 
@@ -375,5 +380,24 @@ func TestListAllTabsTotalFailure(t *testing.T) {
 	}
 	if tabs != nil {
 		t.Errorf("tabs = %v, want nil", tabs)
+	}
+}
+
+// A mediator that cannot be queried must not read as "not yet handshaked",
+// which tells the user to wait for something that will never happen.
+func TestStatusesCarryQueryErrors(t *testing.T) {
+	ok := &fakeClient{prefix: "firefox."}
+	bad := &fakeClient{prefix: "chrome.", infoErr: errors.New("UnknownMethod")}
+	bm := &BrowserManager{clients: []api.Client{ok, bad}}
+
+	infos := bm.Statuses()
+	if len(infos) != 2 {
+		t.Fatalf("got %d infos, want 2", len(infos))
+	}
+	if infos[0].Err != nil {
+		t.Errorf("firefox: Err = %v, want nil", infos[0].Err)
+	}
+	if infos[1].Browser != "chrome" || infos[1].Err == nil {
+		t.Errorf("chrome: got %+v, want Browser chrome with Err set", infos[1])
 	}
 }

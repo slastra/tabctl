@@ -33,6 +33,10 @@ func runStatus() error {
 	anyMismatch := false
 	for _, info := range bm.Statuses() {
 		fmt.Printf("%s\n", info.Browser)
+		if info.Err != nil {
+			fmt.Printf("  mediator:  not responding: %v\n", info.Err)
+			continue
+		}
 		if info.ExtensionVersion == "" {
 			fmt.Printf("  extension: not yet handshaked\n")
 			continue

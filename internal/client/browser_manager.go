@@ -247,7 +247,7 @@ func (bm *BrowserManager) Statuses() []api.Info {
 	for _, client := range bm.clients {
 		info, err := client.Info()
 		if err != nil {
-			info = api.Info{Browser: strings.TrimSuffix(client.GetPrefix(), ".")}
+			info = api.Info{Browser: strings.TrimSuffix(client.GetPrefix(), "."), Err: err}
 		}
 		infos = append(infos, info)
 	}

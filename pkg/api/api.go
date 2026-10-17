@@ -25,4 +25,7 @@ type Info struct {
 	MediatorProtocol  int
 	ExtensionProtocol int
 	Compatible        bool
+	// Err is set when the mediator could not be queried at all, as opposed
+	// to answering that the extension has not handshaked yet.
+	Err error
 }
