@@ -18,6 +18,7 @@ func TestReadLines(t *testing.T) {
 		{"no trailing newline", "a\nb", []string{"a", "b"}},
 		{"empty input", "", nil},
 		{"only blanks", "\n  \n\t\n", nil},
+		{"line past the 64KB scanner default", "data:" + strings.Repeat("x", 100_000) + "\n", []string{"data:" + strings.Repeat("x", 100_000)}},
 	}
 
 	for _, tt := range tests {
