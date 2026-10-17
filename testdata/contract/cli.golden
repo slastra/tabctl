@@ -1,0 +1,231 @@
+# tabctl CLI contract: stdout and exit status.
+# Three mediators: Firefox, a second Firefox profile (Firefox2), and Zen.
+# stderr is not part of the contract and is not recorded.
+
+## Listing
+
+$ tabctl list
+firefox.1.10	Inbox (3), Mail	https://mail.example/inbox
+firefox.1.11	日本語 ✓ café 🦊	https://unicode.example/%E8%B7%AF?q=1&x=2
+firefox.1.12		about:blank
+firefox.2.20	Second window	https://two.example/
+firefox2.7.70	Profile Two	https://p2.example/
+zen.3.30	Zen	https://zen.example/
+[exit 0]
+
+$ tabctl list --format tsv
+firefox.1.10	Inbox (3), Mail	https://mail.example/inbox
+firefox.1.11	日本語 ✓ café 🦊	https://unicode.example/%E8%B7%AF?q=1&x=2
+firefox.1.12		about:blank
+firefox.2.20	Second window	https://two.example/
+firefox2.7.70	Profile Two	https://p2.example/
+zen.3.30	Zen	https://zen.example/
+[exit 0]
+
+$ tabctl list --format json
+[
+  {
+    "id": "firefox.1.10",
+    "title": "Inbox (3), Mail",
+    "url": "https://mail.example/inbox",
+    "windowId": 1,
+    "index": 0,
+    "active": true,
+    "pinned": true,
+    "favIconUrl": "https://mail.example/favicon.ico"
+  },
+  {
+    "id": "firefox.1.11",
+    "title": "日本語 ✓ café 🦊",
+    "url": "https://unicode.example/%E8%B7%AF?q=1\u0026x=2",
+    "windowId": 1,
+    "index": 1,
+    "active": false,
+    "pinned": false,
+    "favIconUrl": "data:image/png;base64,iVBORw0KGgo="
+  },
+  {
+    "id": "firefox.1.12",
+    "title": "",
+    "url": "about:blank",
+    "windowId": 1,
+    "index": 2,
+    "active": false,
+    "pinned": false,
+    "favIconUrl": ""
+  },
+  {
+    "id": "firefox.2.20",
+    "title": "Second window",
+    "url": "https://two.example/",
+    "windowId": 2,
+    "index": 0,
+    "active": true,
+    "pinned": false,
+    "favIconUrl": ""
+  },
+  {
+    "id": "firefox2.7.70",
+    "title": "Profile Two",
+    "url": "https://p2.example/",
+    "windowId": 7,
+    "index": 0,
+    "active": true,
+    "pinned": false,
+    "favIconUrl": ""
+  },
+  {
+    "id": "zen.3.30",
+    "title": "Zen",
+    "url": "https://zen.example/",
+    "windowId": 3,
+    "index": 0,
+    "active": true,
+    "pinned": false,
+    "favIconUrl": "https://zen.example/icon.png"
+  }
+]
+[exit 0]
+
+$ tabctl list --format simple
+Inbox (3), Mail
+日本語 ✓ café 🦊
+
+Second window
+Profile Two
+Zen
+[exit 0]
+
+$ tabctl list --delimiter ,
+firefox.1.10,Inbox (3), Mail,https://mail.example/inbox
+firefox.1.11,日本語 ✓ café 🦊,https://unicode.example/%E8%B7%AF?q=1&x=2
+firefox.1.12,,about:blank
+firefox.2.20,Second window,https://two.example/
+firefox2.7.70,Profile Two,https://p2.example/
+zen.3.30,Zen,https://zen.example/
+[exit 0]
+
+$ tabctl list --browser firefox
+firefox.1.10	Inbox (3), Mail	https://mail.example/inbox
+firefox.1.11	日本語 ✓ café 🦊	https://unicode.example/%E8%B7%AF?q=1&x=2
+firefox.1.12		about:blank
+firefox.2.20	Second window	https://two.example/
+firefox2.7.70	Profile Two	https://p2.example/
+[exit 0]
+
+$ tabctl list --browser firefox2
+firefox2.7.70	Profile Two	https://p2.example/
+[exit 0]
+
+$ tabctl list --browser ZEN
+zen.3.30	Zen	https://zen.example/
+[exit 0]
+
+$ tabctl list --browser nosuch
+[exit 1]
+
+## A browser with no tabs
+
+$ tabctl list --browser zen
+No tabs found
+[exit 0]
+
+$ tabctl list --browser zen --format json
+[]
+[exit 0]
+
+$ tabctl list --browser zen --format simple
+No tabs found
+[exit 0]
+
+## A browser that fails while others answer
+
+$ tabctl list
+firefox.1.10	Inbox (3), Mail	https://mail.example/inbox
+firefox.1.11	日本語 ✓ café 🦊	https://unicode.example/%E8%B7%AF?q=1&x=2
+firefox.1.12		about:blank
+firefox.2.20	Second window	https://two.example/
+firefox2.7.70	Profile Two	https://p2.example/
+[exit 0]
+
+$ tabctl list --browser zen
+[exit 1]
+
+## Activate and navigate
+
+$ tabctl activate firefox.1.10
+Activated tab firefox.1.10
+[exit 0]
+
+$ tabctl activate --focused firefox2.7.70
+Activated tab firefox2.7.70
+[exit 0]
+
+$ tabctl activate firefox.1.999
+[exit 1]
+
+$ tabctl activate nosuch.1.2
+[exit 1]
+
+$ tabctl activate firefox.x.y
+[exit 1]
+
+$ tabctl activate
+[exit 1]
+
+$ tabctl navigate zen.3.30 https://navigated.example/
+Navigated tab zen.3.30 to https://navigated.example/
+[exit 0]
+
+$ tabctl navigate firefox.1.999 https://navigated.example/
+[exit 1]
+
+$ tabctl navigate zen.3.30 ''
+[exit 1]
+
+## Close
+
+$ tabctl close firefox.1.11 firefox.2.20
+Closed 2 tab(s)
+[exit 0]
+
+$ printf 'firefox.1.12\nzen.3.30\n' | tabctl close
+Closed 2 tab(s)
+[exit 0]
+
+$ tabctl close firefox.1.10 nosuch.1.1
+Closed 1 tab(s)
+[exit 1]
+
+$ printf '' | tabctl close
+No tabs to close
+[exit 0]
+
+## Open
+
+$ tabctl open --browser zen https://a.example/ https://b.example/
+zen.3.101
+zen.3.102
+[exit 0]
+
+$ printf 'https://c.example/\n\n  https://d.example/  \n' | tabctl open --browser firefox2
+firefox2.7.101
+firefox2.7.102
+[exit 0]
+
+$ tabctl open https://e.example/
+[exit 1]
+
+$ tabctl open --browser firefox https://e.example/
+[exit 1]
+
+$ printf '' | tabctl open
+No URLs to open
+[exit 0]
+
+## Status (exit status only)
+
+$ tabctl status
+(stdout is not part of the contract)
+[exit 0]
+

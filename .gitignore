@@ -58,3 +58,6 @@ CLAUDE.md
 # Generated extension bundles (built by scripts/build-extensions.sh)
 extensions/chrome/background.js
 extensions/firefox/background.js
+
+# Python bytecode from the test harness
+__pycache__/

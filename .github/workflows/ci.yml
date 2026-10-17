@@ -28,6 +28,8 @@ jobs:
       - run: make build
       - name: End-to-end (mediator + CLI over a private D-Bus session)
         run: dbus-run-session -- python3 scripts/integration-test.py
+      - name: Contract (golden transcripts in testdata/contract)
+        run: dbus-run-session -- python3 scripts/contract-test.py
 
   extension:
     runs-on: ubuntu-latest

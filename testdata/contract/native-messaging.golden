@@ -1,0 +1,27 @@
+# Native-messaging contract: every distinct message the mediator sends
+# the extension during the CLI and D-Bus sections, once each.
+# Message ids and the mediator version are masked; keys are sorted.
+
+## Reply to the extension's hello
+
+{"id": "<id>", "jsonrpc": "2.0", "result": {"mediatorVersion": "<version>", "protocolVersion": 2}}
+
+## Requests
+
+{"id": "<id>", "jsonrpc": "2.0", "method": "list_tabs"}
+{"id": "<id>", "jsonrpc": "2.0", "method": "activate_tab", "params": {"focused": false, "tab_id": 10}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "activate_tab", "params": {"focused": false, "tab_id": 999}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "navigate_tab", "params": {"tab_id": 999, "url": "https://navigated.example/"}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "close_tabs", "params": {"tab_ids": [11, 20]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "close_tabs", "params": {"tab_ids": [12]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "close_tabs", "params": {"tab_ids": [10]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "navigate_tab", "params": {"tab_id": 10, "url": "https://navigated.example/"}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "close_tabs", "params": {"tab_ids": [10, 11]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "open_urls", "params": {"urls": ["https://f.example/"]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "activate_tab", "params": {"focused": true, "tab_id": 70}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "open_urls", "params": {"urls": ["https://c.example/"]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "open_urls", "params": {"urls": ["https://d.example/"]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "navigate_tab", "params": {"tab_id": 30, "url": "https://navigated.example/"}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "close_tabs", "params": {"tab_ids": [30]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "open_urls", "params": {"urls": ["https://a.example/"]}}
+{"id": "<id>", "jsonrpc": "2.0", "method": "open_urls", "params": {"urls": ["https://b.example/"]}}

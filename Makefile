@@ -17,7 +17,7 @@ PLATFORMS=linux/amd64 linux/arm64
 # Chrome extension signing key
 CHROME_KEY=extensions/chrome-private-key.pem
 
-.PHONY: help build build-all install clean test test-extensions test-integration lint fmt deps dev release package extensions build-extensions install-mediator uninstall-mediator check-deps version
+.PHONY: help build build-all install clean test test-extensions test-integration test-contract lint fmt deps dev release package extensions build-extensions install-mediator uninstall-mediator check-deps version
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -51,6 +51,9 @@ test-extensions: build-extensions ## Run extension JS tests
 
 test-integration: build ## Run the end-to-end integration test (needs dbus, python3)
 	dbus-run-session -- python3 scripts/integration-test.py
+
+test-contract: build ## Compare CLI, D-Bus and wire output with testdata/contract (UPDATE_GOLDEN=1 rewrites)
+	dbus-run-session -- python3 scripts/contract-test.py
 
 lint: ## Run go vet, then golangci-lint or staticcheck if installed
 	go vet ./...

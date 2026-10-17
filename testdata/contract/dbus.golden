@@ -1,0 +1,75 @@
+# D-Bus contract, as a consumer sees it through gdbus.
+# <version> is the mediator's build version.
+
+## Introspection (dev.slastra.TabCtl.Firefox)
+
+<node>
+	<interface name="dev.slastra.TabCtl.Browser">
+		<method name="ListTabs">
+			<arg direction="out" type="a(iissibb)" />
+		</method>
+		<method name="ListTabsWithIcons">
+			<arg direction="out" type="a(iissibbs)" />
+		</method>
+		<method name="ActivateTab">
+			<arg direction="in" type="i" name="tab_id" />
+			<arg direction="in" type="b" name="focused" />
+		</method>
+		<method name="NavigateTab">
+			<arg direction="in" type="i" name="tab_id" />
+			<arg direction="in" type="s" name="url" />
+		</method>
+		<method name="CloseTabs">
+			<arg direction="in" type="ai" name="tab_ids" />
+		</method>
+		<method name="OpenTab">
+			<arg direction="in" type="s" name="url" />
+			<arg direction="out" type="i" name="window_id" />
+			<arg direction="out" type="i" name="tab_id" />
+		</method>
+		<method name="GetInfo">
+			<arg direction="out" type="s" name="mediator_version" />
+			<arg direction="out" type="s" name="extension_version" />
+			<arg direction="out" type="i" name="mediator_protocol" />
+			<arg direction="out" type="i" name="extension_protocol" />
+			<arg direction="out" type="b" name="compatible" />
+		</method>
+		<signal name="TabsUpdated" />
+	</interface>
+</node>
+
+## ListTabs()
+
+([(1, 10, 'Inbox (3), Mail', 'https://mail.example/inbox', 0, true, true), (1, 11, '日本語 ✓ café 🦊', 'https://unicode.example/%E8%B7%AF?q=1&x=2', 1, false, false), (1, 12, '', 'about:blank', 2, false, false), (2, 20, 'Second window', 'https://two.example/', 0, true, false)],)
+
+## ListTabsWithIcons()
+
+([(1, 10, 'Inbox (3), Mail', 'https://mail.example/inbox', 0, true, true, 'https://mail.example/favicon.ico'), (1, 11, '日本語 ✓ café 🦊', 'https://unicode.example/%E8%B7%AF?q=1&x=2', 1, false, false, 'data:image/png;base64,iVBORw0KGgo='), (1, 12, '', 'about:blank', 2, false, false, ''), (2, 20, 'Second window', 'https://two.example/', 0, true, false, '')],)
+
+## GetInfo()
+
+('<version>', '2.0.0', 2, 2, true)
+
+## ActivateTab(10, false)
+
+()
+
+## ActivateTab(999, false)
+
+Error: GDBus.Error:org.freedesktop.DBus.Error.Failed: <message>
+
+## NavigateTab(10, https://navigated.example/)
+
+()
+
+## CloseTabs([10, 11])
+
+()
+
+## OpenTab(https://f.example/)
+
+(1, 101)
+
+## TabsUpdated signal after a tabs_changed notification
+
+/dev/slastra/TabCtl/Browser/Firefox: dev.slastra.TabCtl.Browser.TabsUpdated ()

@@ -7,13 +7,10 @@
 #   dbus-run-session -- python3 scripts/integration-test.py
 #
 # Exits non-zero if any check fails.
-import json, os, shutil, struct, subprocess, sys, threading, time
+import json, sys, time
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MED = os.path.join(ROOT, "build", "tabctl-mediator")
-CLI = os.path.join(ROOT, "build", "tabctl")
-# The /.mozilla/ arg makes the mediator detect Firefox.
-MED_ARGS = [MED, "/home/x/.mozilla/native-messaging-hosts/tabctl_mediator.json"]
+from harness import run, spawn_extension
+import harness
 
 failures = []
 
@@ -21,41 +18,6 @@ def check(name, cond, detail=""):
     print(("PASS" if cond else "FAIL"), name, ("" if cond else detail))
     if not cond:
         failures.append(name)
-
-def frame_writer(pipe):
-    def wf(obj):
-        data = json.dumps(obj).encode()
-        pipe.write(struct.pack("<I", len(data)))
-        pipe.write(data)
-        pipe.flush()
-    return wf
-
-def spawn_extension(hello_protocol, handlers):
-    """Start a mediator wired to a scripted extension. Returns (proc, state)."""
-    med = subprocess.Popen(MED_ARGS, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    wf = frame_writer(med.stdin)
-    state = {"closed": [], "activated": [], "navigated": []}
-
-    def loop():
-        while True:
-            hdr = med.stdout.read(4)
-            if len(hdr) < 4:
-                return
-            (n,) = struct.unpack("<I", hdr)
-            msg = json.loads(med.stdout.read(n))
-            method = msg.get("method")
-            if method is None:
-                continue  # response to our hello
-            handlers(wf, state, msg)
-
-    threading.Thread(target=loop, daemon=True).start()
-    wf({"jsonrpc": "2.0", "id": 0, "method": "hello",
-        "params": {"extensionVersion": "2.0.0", "protocolVersion": hello_protocol}})
-    time.sleep(0.6)  # let the mediator claim its D-Bus name
-    return med, state
-
-def run(*args):
-    return subprocess.run([CLI, *args], capture_output=True, text=True)
 
 FAVICON = "https://one.example/favicon.ico"
 
@@ -68,17 +30,9 @@ TABS = [
      "index": 1, "active": False, "pinned": False},
 ]
 
-HAVE_GDBUS = shutil.which("gdbus") is not None
-
 def gdbus(bus_name, method):
     """Call a method on a live mediator the way a downstream consumer would."""
-    if not HAVE_GDBUS:
-        return None
-    return subprocess.run(
-        ["gdbus", "call", "--session", "--dest", f"dev.slastra.TabCtl.{bus_name}",
-         "--object-path", f"/dev/slastra/TabCtl/Browser/{bus_name}",
-         "--method", f"dev.slastra.TabCtl.Browser.{method}"],
-        capture_output=True, text=True)
+    return harness.gdbus(bus_name, "call", "--method", f"dev.slastra.TabCtl.Browser.{method}")
 
 def handlers_for(tabs):
     """Scripted extension responses backed by a specific tab set."""
