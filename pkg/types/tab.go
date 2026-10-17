@@ -2,7 +2,7 @@ package types
 
 // Tab represents a browser tab.
 type Tab struct {
-	ID       string `json:"id"` // "browser.family.window.tab", e.g. "helium.c.1.123"
+	ID       string `json:"id"` // "<browser>.<window>.<tab>", e.g. "helium.1874583011.1874583012"
 	Title    string `json:"title"`
 	URL      string `json:"url"`
 	WindowID int    `json:"windowId"`
