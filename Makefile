@@ -1,5 +1,7 @@
 BINARY_NAME=tabctl
-VERSION=$(shell git describe --tags --always --dirty)
+# Tags are vX.Y.Z; the binaries report X.Y.Z, matching the release workflow
+# and the PKGBUILDs.
+VERSION=$(shell git describe --tags --always --dirty | sed 's/^v//')
 BUILD_DIR=build
 DIST_DIR=dist
 
@@ -15,7 +17,7 @@ PLATFORMS=linux/amd64 linux/arm64
 # Chrome extension signing key
 CHROME_KEY=extensions/chrome-private-key.pem
 
-.PHONY: help build install clean test test-extensions test-integration lint fmt deps dev release extensions build-extensions
+.PHONY: help build build-all install clean test test-extensions test-integration lint fmt deps dev release package extensions build-extensions install-mediator uninstall-mediator check-deps version
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -31,8 +33,8 @@ build: ## Build tabctl and tabctl-mediator
 	$(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/tabctl
 	$(GO_BUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-mediator ./cmd/tabctl-mediator
 
-install: build ## Install the binary to $GOPATH/bin
-	go install $(LDFLAGS) ./cmd/tabctl
+install: ## Install tabctl and tabctl-mediator to $GOPATH/bin
+	go install $(LDFLAGS) ./cmd/tabctl ./cmd/tabctl-mediator
 
 dev: ## Run in development mode (with hot reload if available)
 	go run ./cmd/tabctl
@@ -50,12 +52,15 @@ test-extensions: build-extensions ## Run extension JS tests
 test-integration: build ## Run the end-to-end integration test (needs dbus, python3)
 	dbus-run-session -- python3 scripts/integration-test.py
 
-lint: ## Run linter
-	golangci-lint run
+lint: ## Run go vet, then golangci-lint or staticcheck if installed
+	go vet ./...
+	@if command -v golangci-lint >/dev/null; then golangci-lint run; \
+	elif command -v staticcheck >/dev/null; then staticcheck ./...; \
+	else echo "lint: neither golangci-lint nor staticcheck installed; ran go vet only"; fi
 
 fmt: ## Format code
 	go fmt ./...
-	goimports -w .
+	@if command -v goimports >/dev/null; then goimports -w cmd internal pkg; fi
 
 ##@ Build
 
@@ -92,7 +97,7 @@ extensions: build-extensions ## Package browser extensions for release
 	@cd extensions/firefox && zip -r ../../$(DIST_DIR)/tabctl-firefox-extension.zip . -x '.*'
 	@echo "Packaging Chrome extension (zip)..."
 	@cd extensions/chrome && zip -r ../../$(DIST_DIR)/tabctl-chrome-extension.zip . -x '.*'
-	@CHROMIUM=$$(which brave || which google-chrome || which google-chrome-stable || which chromium 2>/dev/null); \
+	@CHROMIUM=$$(command -v brave || command -v google-chrome || command -v google-chrome-stable || command -v chromium); \
 	if [ ! -f $(CHROME_KEY) ]; then \
 		echo "Skipping CRX: signing key not found at $(CHROME_KEY) (store zips do not require it)"; \
 	elif [ -z "$$CHROMIUM" ]; then \
