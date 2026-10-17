@@ -54,6 +54,13 @@ old one after you rebuild.
 
 4. **Restart browser** to activate native messaging
 
+### Uninstalling
+
+`tabctl uninstall` removes the native-messaging manifest from every supported
+browser, or one with `--browser`. Run it before removing the package; the
+manifests live in your home directory, so the package manager cannot remove
+them. Remove the extension from the browser itself.
+
 ## Usage
 
 ### Basic Commands
