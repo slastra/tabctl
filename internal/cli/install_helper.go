@@ -81,17 +81,14 @@ func findMediatorPath() (string, error) {
 		return path, nil
 	}
 
-	// Try to build it if we're in development
+	// In a source checkout, point at the build that stamps a version rather
+	// than building one here. This used to run a bare `go build` into the
+	// working directory, which registered an unversioned mediator ("dev" in
+	// `tabctl status`) at a second location for the browser to keep
+	// launching after the next rebuild.
 	if _, err := os.Stat("cmd/tabctl-mediator/main.go"); err == nil {
-		fmt.Println("Building tabctl-mediator...")
-		cmd := exec.Command("go", "build", "-o", "tabctl-mediator", "./cmd/tabctl-mediator")
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to build mediator: %v", err)
-		}
-
-		absPath, _ := filepath.Abs("tabctl-mediator")
-		return absPath, nil
+		return "", fmt.Errorf("tabctl-mediator not found; run `make build`, then `./build/tabctl install`")
 	}
 
-	return "", fmt.Errorf("tabctl-mediator not found")
+	return "", fmt.Errorf("tabctl-mediator not found next to tabctl or on PATH")
 }
