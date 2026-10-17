@@ -24,7 +24,13 @@ func TestFilterBrowserNames(t *testing.T) {
 		{
 			name:  "multiple browsers with noise",
 			names: []string{"org.freedesktop.DBus", prefix + "Firefox", prefix + "Chrome", ":1.42"},
-			want:  []string{"Firefox", "Chrome"},
+			want:  []string{"Chrome", "Firefox"},
+		},
+		{
+			// Byte order, matching what dbus-broker has always returned.
+			name:  "sorted regardless of bus order",
+			names: []string{prefix + "Firefox", prefix + "Chrome2", prefix + "Brave", prefix + "Chrome10", prefix + "Chrome"},
+			want:  []string{"Brave", "Chrome", "Chrome10", "Chrome2", "Firefox"},
 		},
 		{
 			name:  "empty suffix and bare base excluded",

@@ -1,9 +1,11 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tabctl/tabctl/pkg/api"
 	"github.com/tabctl/tabctl/pkg/types"
@@ -17,9 +19,22 @@ type fakeClient struct {
 	activated []int
 	navigated []string
 	opened    []string
+
+	tabs    []types.Tab
+	listErr error
+	// listGate, when set, holds ListTabs until it is closed, after first
+	// reporting the call on entered.
+	listGate chan struct{}
+	entered  chan<- string
 }
 
-func (f *fakeClient) ListTabs() ([]types.Tab, error) { return nil, nil }
+func (f *fakeClient) ListTabs() ([]types.Tab, error) {
+	if f.listGate != nil {
+		f.entered <- f.prefix
+		<-f.listGate
+	}
+	return f.tabs, f.listErr
+}
 
 func (f *fakeClient) CloseTabs(tabIDs []int) error {
 	if f.closeErr != nil {
@@ -284,4 +299,81 @@ func TestNewBrowserManagerErrors(t *testing.T) {
 			t.Errorf("client error should propagate, got: %v", err)
 		}
 	})
+}
+
+func TestListAllTabsKeepsClientOrder(t *testing.T) {
+	brave := &fakeClient{prefix: "brave.", tabs: []types.Tab{{ID: "brave.1.1"}, {ID: "brave.1.2"}}}
+	firefox := &fakeClient{prefix: "firefox.", tabs: []types.Tab{{ID: "firefox.1.3"}}}
+	bm := &BrowserManager{clients: []api.Client{brave, firefox}}
+
+	tabs, err := bm.ListAllTabs()
+	if err != nil {
+		t.Fatalf("ListAllTabs: %v", err)
+	}
+	var ids []string
+	for _, tab := range tabs {
+		ids = append(ids, tab.ID)
+	}
+	if got, want := strings.Join(ids, ","), "brave.1.1,brave.1.2,firefox.1.3"; got != want {
+		t.Errorf("order: got %s, want %s", got, want)
+	}
+}
+
+// Every browser must be asked before any answer is awaited: both calls have
+// to be in flight at once while neither may return. A sequential loop only
+// ever enters the first.
+func TestListAllTabsQueriesConcurrently(t *testing.T) {
+	gate := make(chan struct{})
+	entered := make(chan string, 2)
+	a := &fakeClient{prefix: "a.", listGate: gate, entered: entered}
+	b := &fakeClient{prefix: "b.", listGate: gate, entered: entered}
+	bm := &BrowserManager{clients: []api.Client{a, b}}
+
+	done := make(chan struct{})
+	go func() {
+		bm.ListAllTabs()
+		close(done)
+	}()
+	defer func() { <-done }()
+	defer close(gate)
+
+	for range 2 {
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("only one browser was queried while the other was outstanding")
+		}
+	}
+}
+
+func TestListAllTabsPartialFailure(t *testing.T) {
+	ok := &fakeClient{prefix: "firefox.", tabs: []types.Tab{{ID: "firefox.1.1"}}}
+	bad := &fakeClient{prefix: "chrome2.", listErr: errors.New("timed out")}
+	bm := &BrowserManager{clients: []api.Client{bad, ok}}
+
+	tabs, err := bm.ListAllTabs()
+	var partial *PartialError
+	if !errors.As(err, &partial) {
+		t.Fatalf("err = %v, want *PartialError", err)
+	}
+	if !strings.Contains(err.Error(), "chrome2: timed out") {
+		t.Errorf("err %q does not name the failed browser", err)
+	}
+	if len(tabs) != 1 || tabs[0].ID != "firefox.1.1" {
+		t.Errorf("tabs = %v, want the firefox tab", tabs)
+	}
+}
+
+func TestListAllTabsTotalFailure(t *testing.T) {
+	bad := &fakeClient{prefix: "chrome.", listErr: errors.New("timed out")}
+	bm := &BrowserManager{clients: []api.Client{bad}}
+
+	tabs, err := bm.ListAllTabs()
+	var partial *PartialError
+	if err == nil || errors.As(err, &partial) {
+		t.Fatalf("err = %v, want a hard (non-partial) error", err)
+	}
+	if tabs != nil {
+		t.Errorf("tabs = %v, want nil", tabs)
+	}
 }

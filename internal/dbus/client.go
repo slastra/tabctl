@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/godbus/dbus/v5"
@@ -47,7 +48,13 @@ func (c *Client) DiscoverBrowsers(ctx context.Context) ([]string, error) {
 	return filterBrowserNames(names), nil
 }
 
-// filterBrowserNames extracts browser names from the bus name list.
+// filterBrowserNames extracts browser names from the bus name list, sorted.
+//
+// The sort fixes the order `tabctl list` prints browsers in. dbus-broker
+// already returns names sorted, so on it this changes nothing; dbus-daemon
+// returns them in hash order, which let the order shift as profiles came and
+// went. Plain byte order, not natural order, because that is what
+// dbus-broker users have always seen (Chrome, Chrome10, Chrome2).
 func filterBrowserNames(names []string) []string {
 	var browsers []string
 	prefix := ServiceNameBase + "."
@@ -59,6 +66,7 @@ func filterBrowserNames(names []string) []string {
 			}
 		}
 	}
+	sort.Strings(browsers)
 	return browsers
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/tabctl/tabctl/internal/dbus"
 	"github.com/tabctl/tabctl/pkg/api"
@@ -93,23 +94,61 @@ func routePrefix(userID string) string {
 	return parts[0] + "."
 }
 
-// ListAllTabs lists tabs from all browsers.
+// ListAllTabs lists tabs from all browsers, in client order.
+//
+// Browsers are queried concurrently. Each call can take the mediator's full
+// timeout when an extension stops answering, and done in sequence one wedged
+// profile held every other browser's tabs hostage for 25 seconds.
+//
+// A browser that fails is skipped rather than failing the whole list. The
+// returned tabs are still valid when err is a *PartialError; any other error
+// means nothing could be listed.
 func (bm *BrowserManager) ListAllTabs() ([]types.Tab, error) {
+	type result struct {
+		tabs []types.Tab
+		err  error
+	}
+	results := make([]result, len(bm.clients))
+	var wg sync.WaitGroup
+	for i, client := range bm.clients {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tabs, err := client.ListTabs()
+			results[i] = result{tabs, err}
+		}()
+	}
+	wg.Wait()
+
 	var allTabs []types.Tab
+	var failures []error
 	var lastErr error
-	for _, client := range bm.clients {
-		tabs, err := client.ListTabs()
-		if err != nil {
-			lastErr = err
+	for i, r := range results {
+		if r.err != nil {
+			lastErr = r.err
+			failures = append(failures, fmt.Errorf("%s: %w",
+				strings.TrimSuffix(bm.clients[i].GetPrefix(), "."), r.err))
 			continue
 		}
-		allTabs = append(allTabs, tabs...)
+		allTabs = append(allTabs, r.tabs...)
 	}
 	if len(allTabs) == 0 && lastErr != nil {
 		return nil, fmt.Errorf("failed to list tabs: %w", lastErr)
 	}
+	if len(failures) > 0 {
+		return allTabs, &PartialError{Err: errors.Join(failures...)}
+	}
 	return allTabs, nil
 }
+
+// PartialError reports browsers that failed while others answered. The
+// results that came with it are complete for every browser not named in it.
+type PartialError struct {
+	Err error
+}
+
+func (e *PartialError) Error() string { return e.Err.Error() }
+func (e *PartialError) Unwrap() error { return e.Err }
 
 // CloseTabs closes tabs by user-facing ID, returning the number actually
 // dispatched. IDs whose prefix matches no connected browser (or that don't
