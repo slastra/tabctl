@@ -8,7 +8,6 @@ Control browser tabs from the command line using D-Bus IPC.
 - **Multi-Browser Support** - Firefox, Zen, Chrome, Chromium, Brave, Brave Origin, and Helium work simultaneously
 - **Core Commands** - List, close, activate, navigate, and open tabs across browsers
 - **Desktop Switching** - Automatic window focus across virtual desktops
-- **Rofi Integration** - Quick tab switching with rofi scripts
 - **Multiple Output Formats** - TSV, JSON, simple
 - **Clean Architecture** - Minimal dependencies, production ready
 
@@ -163,34 +162,9 @@ pages, and when the extension is older than 2.2.0. It is usually an `http(s)`
 URL. A page that declares an inline favicon reports a `data:` URI instead, so
 handle both. The `tsv` and `simple` formats are positional and unchanged.
 
-## Rofi Integration
-
-Quick tab switching with rofi (includes desktop switching):
-
-```bash
-# From a source checkout
-./scripts/rofi-tabctl-wmctrl.sh     # X11 (wmctrl)
-./scripts/rofi-tabctl-hyprland.sh   # Hyprland (Wayland), with favicons
-
-# AUR installs ship the scripts here
-/usr/share/tabctl/scripts/rofi-tabctl-wmctrl.sh
-/usr/share/tabctl/scripts/rofi-tabctl-hyprland.sh
-```
-
-Bind one to a key for instant access. Both scripts use your default rofi
-theme, so style them in your normal rofi config.
-
-The Hyprland script also shows a favicon per tab. It uses each tab's own
-`favIconUrl` and never calls a third-party icon service, so it only contacts
-sites you already have open. It needs `jq`, `curl` and `imagemagick`, and
-caches chips in `$XDG_CACHE_HOME/tabctl/favicons`.
-
-In that script, **Enter** switches to the highlighted tab. **Ctrl+w** closes
-it and reopens the menu, so you can clear several tabs in a row.
-
 ## Related Projects
 
-Tools built on tabctl:
+Tools built on tabctl, including tab switchers and launchers:
 
 - [tabstrip](https://github.com/slastra/tabstrip). A tab strip daemon for
   Hyprland. It shows the tabs of every browser window on the current

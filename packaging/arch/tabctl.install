@@ -6,8 +6,6 @@ post_install() {
     echo "==>   Firefox / Zen:  https://addons.mozilla.org/en-US/firefox/addon/tabctl1/"
     echo "==>   Chrome / Chromium / Brave / Helium:"
     echo "==>     https://chromewebstore.google.com/detail/tabctl/baomblllgemcgbignhpbipgiofmjdhpn"
-    echo "==> "
-    echo "==> Rofi tab switchers are in /usr/share/tabctl/scripts/"
 }
 
 post_upgrade() {

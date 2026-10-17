@@ -14,7 +14,6 @@ TabCtl enables powerful command-line control of browser tabs across Firefox and 
 - **Universal Browser Support** - Works with Firefox, Zen, Chrome, Chromium, Brave, Brave Origin, and Helium
 - **D-Bus Architecture** - Secure local communication without network dependencies
 - **Desktop Integration** - Automatic window focus and workspace switching
-- **Rofi Integration** - Lightning-fast fuzzy search across all open tabs
 - **Privacy Focused** - No data collection, all operations remain local
 
 ## Quick Start
@@ -87,22 +86,6 @@ tabctl list --format json
 # Check the extension and command-line tool are on matching versions
 tabctl status
 ```
-
-## Rofi Integration
-
-TabCtl includes powerful [Rofi](https://github.com/davatorium/rofi) integration for visual tab management:
-
-```bash
-# X11 with wmctrl
-scripts/rofi-tabctl-wmctrl.sh
-
-# Wayland with Hyprland (favicons)
-scripts/rofi-tabctl-hyprland.sh
-```
-
-AUR installs ship both scripts in `/usr/share/tabctl/scripts/`.
-
-The Rofi integration provides instant fuzzy search across all tabs with automatic desktop/workspace switching when activating tabs. In the Hyprland script, **Enter** switches to the highlighted tab and **Ctrl+w** closes it (reopening the menu so you can clear several at once).
 
 ## Documentation
 
