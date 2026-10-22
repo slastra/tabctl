@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/8ee92630-a373-460e-80a2-721d59dc2fa0
+
 # TabCtl
 
 Control browser tabs from the command line using D-Bus IPC.
